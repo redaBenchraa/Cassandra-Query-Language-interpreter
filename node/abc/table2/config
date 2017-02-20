@@ -1,0 +1,18 @@
+{
+  "columnCount": 3,
+  "columnNames": [
+    "idid",
+    "name",
+    "lname"
+  ],
+  "columnTypes": [
+    "integer",
+    "string",
+    "string"
+  ],
+  "pkCount": 2,
+  "primaryKeys": [
+    0,
+    1
+  ]
+}
