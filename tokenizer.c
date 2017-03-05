@@ -434,19 +434,8 @@ void readToken(){
 Token * tokenize(char * filePath){
 	FILE *f = NULL;  
 	if(filePath == NULL) return NULL;
-	if(filePath[0] == '\n'){
-		filePath++;
-	}
-	if(filePath[0] == '@'){
-		filePath++;
-		file = fopen(filePath, "r");
-	}else{
-		f = fopen ("stdin", "w");  
-		fprintf (f, "%s", filePath);  
-		fclose(f);
-		f = fopen ("stdin", "r");  
-		file = f;
-	}
+	f = fopen ("queryFile", "r");  
+	file = f;
 	if(file != NULL){
 		readChar();
 		if(currentChar == EOF){

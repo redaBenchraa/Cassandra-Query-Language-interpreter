@@ -32,7 +32,6 @@ int main(int argc, char ** argv){
 	{
 		
 		printf("CQL# ");
-		int motherFlag;
 		getQuery(request);
 		if(strcmp(request,"clear;") == 0 || strcmp(request,"\nclear;") == 0) 
 		{

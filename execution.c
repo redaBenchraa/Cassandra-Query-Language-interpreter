@@ -1,4 +1,5 @@
 #include "execution.h"
+int dsc;
 char *rootName = "node";
 char *results[150]={
 	"OPEN_ERROR",
@@ -51,7 +52,14 @@ char *results[150]={
   	"ALL_PRIMARY_HERE",
   	"MISSING_PRIMARY",
   	"MISSING_COLUMN",
-  	"ALL_COLUMNS"
+  	"ALL_COLUMNS",
+	"USER_EXISTS",
+	"USER_ADDED",
+	"USER_NOT_FOUND",
+	"USER_DELETED",
+	"USERS_SAVED",
+	"USER_ALTERED",
+	"USER_NOT_ALTERED"
 };
 int getColumnIndex1(node *columns, char*columnName){
 	int i=0;
@@ -413,6 +421,10 @@ CHANGE
 int deleteKeyspace(char *name){
 
 	char* folderPath = concat(concat(rootName,DELIMITER),name);
+	if(checkFolder(folderPath) == FOLDER_NOT_EXISTS ) {
+		return FOLDER_NOT_EXISTS;
+	}
+
 	char* deleteCmd = concat(DELETECMD,folderPath);
 	system(deleteCmd);
 	if(checkFolder(folderPath) == FOLDER_NOT_EXISTS){
@@ -432,8 +444,10 @@ FOLDER_ERROR_DELETE
 CHANGE
 */
 int deleteTable(char *keyspaceName,char *name){
-	if(checkFolder(rootName) == FOLDER_NOT_EXISTS ) return FOLDER_NOT_EXISTS;
 	char* folderPath = concat(concat(concat(concat(rootName,DELIMITER),keyspaceName),DELIMITER),name);
+	if(checkFolder(folderPath) == FOLDER_NOT_EXISTS ) {
+		return FOLDER_NOT_EXISTS;
+	}
 	char* deleteCmd = concat(DELETECMD,folderPath);
 	system(deleteCmd);
 	if(checkFolder(folderPath) == FOLDER_NOT_EXISTS){
@@ -876,7 +890,10 @@ keyspaceConfig * readKeyspaceConfig(char * keyspaceName){
 	char *fileName = concat(concat(path,"/"),"config");
 	
 	if(checkFolder(path) == FOLDER_NOT_EXISTS){
-		printf("KEYSPACE_NOT_EXISTS\n");
+		char*result = malloc(50);
+        sprintf(result,"%s","KEYSPACE_NOT_EXISTS\n");
+       	pushResult(result,sizeofString(result)+1);
+		//printf("KEYSPACE_NOT_EXISTS\n");
 		return NULL;
 	}
 	else{
@@ -979,18 +996,30 @@ printSelectHeader(char*keyspaceName,char*tableName,node*columns,bool flag){
     {
     	if(flag == true){
 	    int key = *(int *)keys->data;
-	    printf("%s\t",getColumnName(keyspaceName,tableName,key));
+	   	char*result = malloc(50);
+        sprintf(result,"%s\t",getColumnName(keyspaceName,tableName,key));
+       	pushResult(result,sizeofString(result)+1);
+	    //printf("%s\t",getColumnName(keyspaceName,tableName,key));
     	}else{
-	    char* key = (char*)keys->data;
-	    printf("%s\t",key);
+		    char* key = (char*)keys->data;
+			char*result = malloc(50);
+	        sprintf(result,"#%s\t",key);
+	       	pushResult(result,sizeofString(result)+1);
+		    //printf("%s\t",key);
     	}
         keys = keys->next;
     }
-    printf("\n------------------------------------------\n");
+    char*result = malloc(50);
+	sprintf(result,"%s","\n==========================================\n");
+	pushResult(result,sizeofString(result)+1);
+    //printf("\n------------------------------------------\n");
 }
 int showSelectResult(char*keyspaceName,char*tableName,node*listColumn,node*asNames,tableData *dataTable){
 	TableConfig *t = readTableConfig(keyspaceName,tableName);
-    printf("\n------------------------------------------\n");
+    char*result = malloc(50);
+	sprintf(result,"%s","\n==========================================\n");
+	pushResult(result,sizeofString(result)+1);
+    //printf("\n------------------------------------------\n");
 	if(listColumn == NULL) printSelectHeader(keyspaceName,tableName,t->columnNames,false);
 	else printSelectHeader(keyspaceName,tableName,asNames,false);
 	node *n = dataTable->rowData;
@@ -999,6 +1028,10 @@ int showSelectResult(char*keyspaceName,char*tableName,node*listColumn,node*asNam
 		printRow(r,listColumn);
 		n= n->next;
 	}
+	sprintf(result,"%s","==========================================\n");
+	pushResult(result,sizeofString(result)+1);
+
+
 }
 
 int filterNumbers(tableData*data,TableConfig*t,int ops,int value,int column){
@@ -1065,6 +1098,126 @@ int filterNumbers(tableData*data,TableConfig*t,int ops,int value,int column){
     		Cell * cell = c->data;
 	    	if(column == i){
 	    		int dataValue = atoi((char*)cell->value);
+	    		switch(ops){
+		    		case OPS_INF : 
+		    		if(!(dataValue < value)){  
+		    			test = 1;
+		    		};
+		    		 break;
+					case OPS_INFE : 
+					if(!(dataValue <= value)){  
+						test = 1;
+					};
+					 break;
+					case OPS_SUP : 
+					if(!(dataValue > value)){ 
+						test = 1;
+					};
+					  break;
+					case OPS_SUPE : 
+					if(!(dataValue >= value)){ 
+						test = 1;
+					};
+					  break;
+					case OPS_EQ : 
+					if(!(dataValue == value)){  
+						test = 1;
+					};
+					 break;
+					case OPS_DIFF : 
+					if(!(dataValue != value)){  
+						test = 1;
+					};
+					 break; 
+					default : test = 0;break;
+				}
+			}
+	    	c = c->next;
+	    	i++;
+	    }
+		if(test == 1){
+			rowPrev->next = rowCurrent->next;
+			node*tmp = rowCurrent;
+			free(tmp);
+			rowCurrent = rowPrev->next;
+		}else{
+			rowPrev = rowCurrent;
+			rowCurrent = rowCurrent->next;
+		}
+		test = 0;
+	}
+	if(first == true){
+		data->rowData = data->rowData->next;
+	}
+
+}
+
+int filterFloats(tableData*data,TableConfig*t,int ops,float value,int column){
+	if(data == NULL || t == NULL  || data->rowData == NULL) return;
+	Row *r = (Row*) data->rowData->data;
+	node *c = r->cells;
+	int test = 0;
+	bool first = false;
+	int i=0;
+	while (c != NULL)
+    {
+    	Cell * cell = c->data;
+    	if(column == i){
+    		float dataValue = atof((char*)cell->value);
+    		printf("dataValue : %f\n",dataValue);
+    		switch(ops){
+	    		case OPS_INF : 
+	    		if(!(dataValue < value)){  
+	    			test = 1;
+	    		};
+	    		 break;
+				case OPS_INFE : 
+				if(!(dataValue <= value)){  
+					test = 1;
+				};
+				 break;
+				case OPS_SUP : 
+				if(!(dataValue > value)){ 
+					test = 1;
+				};
+				  break;
+				case OPS_SUPE : 
+				if(!(dataValue >= value)){ 
+					test = 1;
+				};
+				  break;
+				case OPS_EQ : 
+				if(!(dataValue == value)){  
+					test = 1;
+				};
+				 break;
+				case OPS_DIFF : 
+				if(!(dataValue != value)){  
+					test = 1;
+				};
+				 break; 
+				default : test = 0;break;
+			}
+		}
+    	c = c->next;
+    	i++;
+    }
+    if(test == 1) {
+    	first = true;
+    }
+	node *rowCurrent = data->rowData->next;
+	node *rowPrev = data->rowData;
+    test = 0;
+	while(rowCurrent != NULL){
+		Row *r = (Row*) rowCurrent->data;
+		node *c = r->cells;
+		i=0;
+		while (c != NULL)
+	    {
+    		Cell * cell = c->data;
+	    	if(column == i){
+	    		float dataValue = atof((char*)cell->value);
+	    		printf("dataValue : %f\n",dataValue);
 	    		switch(ops){
 		    		case OPS_INF : 
 		    		if(!(dataValue < value)){  
@@ -1356,15 +1509,22 @@ void printRow(Row* row, node *listColumn){
 	Row *r = row;
 	node *cell = r->cells;
 	int i=0;
+	char *result;
 	if(listColumn == NULL){
 		while (cell != NULL)
 	    {
 			Cell * c = (Cell*) cell->data;
-	    	printf("%s\t",c->value);
+			result = malloc(50);
+            sprintf(result,"%s\t",c->value);
+            pushResult(result,sizeofString(result)+1);
+            //printf("%s\t",c->value);
 	      	cell = cell->next;
 	      	i++;
 	    }
-	    printf("\n------------------------------------------\n");
+	    result = malloc(50);
+        sprintf(result,"%s","\n------------------------------------------\n");
+       	pushResult(result,sizeofString(result)+1);
+	    //printf("\n------------------------------------------\n");
 	    return;
 	}
 	node *cols = listColumn;
@@ -1376,7 +1536,9 @@ void printRow(Row* row, node *listColumn){
 	    {
 			Cell * c = (Cell*) cell->data;
 			if(i == *(int*) cols->data){
-	    		printf("%s\t",c->value);
+	    		result = malloc(50);
+	            sprintf(result,"%s\t",c->value);
+	            pushResult(result,sizeofString(result)+1);
 	    		break;
 			}
 	      	cell = cell->next;
@@ -1385,7 +1547,9 @@ void printRow(Row* row, node *listColumn){
 		cols = cols->next;
 	}
 
-    printf("\n------------------------------------------\n");
+    	result = malloc(50);
+        sprintf(result,"%s","\n------------------------------------------\n");
+       	pushResult(result,sizeofString(result)+1);
 }
 
 node* getKeysFromData(tableData*data){
@@ -1410,6 +1574,172 @@ char *getColumnType(TableConfig *tc,int index){
 	return NULL;
 
 }
+
+/*
+Looks for a user based on their identifier
+returns
+true if found
+flase if not
+*/
+bool findUser(char *user){
+
+	node *users=NULL;
+	users = getUsers();
+	while(users != NULL && strcmp((char*)users->data,user)) {
+		users = users->next;//get name
+		users = users->next;//get password
+	};
+	if(users != NULL){
+		return true;
+	}
+	return false;
+}
+
+//include unistd.h
+/*Create a new user
+returns
+USER_EXISTS
+USER_ADDED
+*/
+int createUser(Row *r){
+	char * user = concat(rootName,concat("/","user"));
+	Cell *c;
+	json_error_t error;
+	json_t *row = json_object();
+	json_t *root;
+	FILE * f;
+	if( access( user, F_OK ) != -1 ) {
+		f = fopen(user,"r");
+   		if(f == NULL){
+			root = json_object();
+		}else{
+			root = json_load_file(user,0,&error);
+			if(!root){
+				root = json_object();
+			}
+		}
+		fclose(f);
+	} 
+	else {
+    	f = fopen(user,"w");
+    	fprintf(f, "{}");
+		fclose(f);
+		root = json_object();
+	}
+	c = (Cell *) r->cells->data;
+	if(findUser(c->value)){
+		return USER_EXISTS;
+	}
+	char * key = malloc(30 * sizeof(char));
+ 	//sprintf(key, "%u", (unsigned)time(NULL));
+ 	strcpy(key,c->value);
+ 	json_object_set_new( root, key , row);
+ 	json_object_set_new( row, "name", json_string((char*)c->value));
+ 	r->cells = r->cells->next;
+ 	c = (Cell *) r->cells->data;
+ 	json_object_set_new( row, "password", json_string((char*)c->value));
+ 	json_dump_file(root,user, 0);
+  	return USER_ADDED;
+}
+/*
+Returns the linked list of users with their passwords from the file
+*/
+node* getUsers(){
+	char *fileName = concat(rootName,concat(DELIMITER,"user"));
+	json_t *root,*value,*name,*password;
+	const char *key;
+	json_error_t error;
+	root = json_load_file(fileName,0,&error);
+	if(!root){
+	    return NULL;
+	}
+	node *users=NULL;
+	json_object_foreach(root, key, value) {
+		name = json_object_get(value, "name");
+		password = json_object_get(value,"password");
+		if(!json_is_string(name) && !json_is_string(password))
+        {
+            return NULL;
+        }
+       	pushToList(&users, json_string_value(name), sizeofString(json_string_value(name))+1);
+       	pushToList(&users, json_string_value(password), sizeofString(json_string_value(password))+1);
+	}
+	return users;
+}
+/*return the node of the looked up user*/
+node *getUser(char *userName){
+	node * users = NULL;
+	users = getUsers();
+	if(findUser(userName)){
+		while(users != NULL && strcmp((char*)users->data,userName)) {
+			users = users->next;//get name
+			users = users->next;//get password
+		}
+		users->next->next = NULL;
+		return users;
+
+	}
+	return NULL;
+}
+int dropUser(char *userName){
+	node *users= getUsers();
+	if(findUser(userName)){
+		if(strcmp((char*)users->data,userName) == 0){
+			users = users->next->next;
+		}
+		else{
+			node*current  = users->next->next; //skip password;
+			node*previous = users;
+			while(current!=NULL){
+				if(strcmp((char*)current->data,userName)==0){
+					node * tmpN = current;
+					node* tmpP =current->next;
+					previous->next->next = current ->next->next;
+					free(tmpN);
+					free(tmpP);
+					if(previous != NULL) current = previous->next->next;
+					else current = NULL;
+				}
+				else{
+					current = current->next->next;
+					previous = previous->next->next;
+				}
+			}
+		}
+		if(saveUsersList(users) == USERS_SAVED) return USER_DELETED;
+	}
+	return USER_NOT_FOUND;
+	
+}
+/*
+Save users list in JSON file 
+returns USERS_SAVED
+*/
+int saveUsersList(node *users){
+	char * user = concat(rootName,concat("/","user"));
+	system(concat("rm ",user));
+		while(users !=NULL){
+			Row *row = (Row*) malloc(sizeof(Row));
+    		row->cells = NULL;
+    		pushToList(&row->cells,initCell((char*)users->data),sizeof(Cell));
+    		pushToList(&row->cells,initCell((char*)users->next->data),sizeof(Cell));
+    		int i = createUser(row);
+			users = users->next->next;
+	}
+			return USERS_SAVED;
+
+}
+int alterUser(Row *row){
+	Cell *c;
+	char *name,*password;
+	c = (Cell*) row->cells->data;
+	if(dropUser(c->value) == USER_DELETED) {
+		int result = createUser(row);
+		if(result == USER_ADDED) return USER_ALTERED;
+	}
+	else return USER_NOT_ALTERED;
+}
+
 
 /*
 	TEST FUNCTIONS
@@ -1603,6 +1933,41 @@ void testConcatRow(){
     //concatRows(columns,columns1);
     printList(columns,printInt);
 }
+void testcreateUser(){
+	Row *row = (Row*) malloc(sizeof(Row));
+    row->state = 1;
+    row->cells = NULL;
+    pushToList(&row->cells,initCell("reda"),sizeof(Cell));
+    pushToList(&row->cells,initCell("maze"),sizeof(Cell));
+	int result = createUser(row);
+	printf("%s\n",results[result] );
+
+}
+
+void testgetUser(){
+	node *user=NULL;
+	user = getUser("reda");
+	printList(user,printString);
+}
+void testdropUser(){
+	node *users = getUsers();
+	int result = dropUser("rabab");
+	printf("%s\n",results[result] );
+
+}
+void testAlterUser(){
+	Row *row = (Row*) malloc(sizeof(Row));
+    row->state = 1;
+    row->cells = NULL;
+    pushToList(&row->cells,initCell("rabab"),sizeof(Cell));
+    pushToList(&row->cells,initCell("123"),sizeof(Cell));
+	int result = alterUser(row);
+	printf("%s\n",results[result] );
+}
+
+
+
+
 
 /*
 	MAIN

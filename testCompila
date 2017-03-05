@@ -1,0 +1,173 @@
+list users;
+
+create user test with password 'pass';
+
+list users;
+
+alter user test with password 'password';
+
+create user test with password 'pass';
+
+drop user test;
+
+list users;
+
+drop user test;
+
+create keyspace test1;
+
+drop keyspace test1;
+
+create keyspace test;
+
+create keyspace test;
+
+use db1;
+
+use db;
+
+select * from emp;
+
+use test;
+
+create table salarier(id 'integer',name 'string',lname 'string',sal 'float',primary key(id,name));
+
+describe table salarier;
+
+describe keyspace test;
+
+insert into salarier values(1,'reda','ben',15.25);
+
+select * from salarier;
+
+insert into salarier (id,name)values(2,'rabab');
+
+insert into salarier (id,name,sal)values(2,'rabab');
+
+insert into salarier (id,name,sal)values(2,'rabab',15);
+
+insert into salarier (id,name,sal)values(2,'rabab',15.02);
+
+select * from salarier;
+
+insert into salarier (id,name,sal)values(3,'imad',15.02);
+
+select * from salarier;
+
+insert into salarier (name,id,lname,sal)values('mehdi',4,'alaoui',15.25);
+
+insert into salarier (name,id,lname,sal)values('Kawthar',0,'Bahhou',15.20);
+
+select * from salarier;
+
+alter table salarier rename lname to LNAME;
+
+select * from salarier;
+
+alter table salarier add job 'string';
+
+select * from salarier;
+
+insert into salarier values(5,'VEN','BEN',15.25,'CLERK');
+
+select * from salarier;
+
+insert into salarier values(6,'DO','ME',14.25,'QUEEN');
+
+select * from salarier;
+
+update salarier set job='CODER' where name in('reda','rabab','imad','Kawthar','mehdi') and id <=2;
+
+select * from salarier;
+
+update salarier set job='TESTER' where name in('reda','rabab','imad','Kawthar','mehdi') and id >2;
+
+select * from salarier;
+
+update salarier set job='CLERK',LNAME=12 where name in(12,'rabab','imad','Kawthar','mehdi') and id = 'reda';
+
+update salarier set job='CLERK',LNAME='BOUR' where name in(12,'rabab','imad','Kawthar','mehdi') and id = 'reda';
+
+update salarier set job='CLERK',LNAME='BOUR' where name in('reda','rabab','imad','Kawthar','mehdi') and id = 'reda';
+
+update salarier set job='CLERK',LNAME='BOUR' where name in('reda','rabab','imad','Kawthar','mehdi') and id = 3;
+
+select * from salarier;
+
+update salarier set sal=20.0,ll='chah' where name = 'rabab';
+
+update salarier set sal=20.0,LNAME='chah' where name = 'rabab';
+
+select * from salarier;
+
+insert into salarier values(7,'red','bi',10.25,'CLERK');
+
+select * from salarier;
+
+delete from sal where salaire = 10.25;
+
+delete from salarier where salaire = 10.25;
+
+delete from salarier where sal = 10;
+
+delete from salarier where sal = 10.25;
+
+select * from salarier;
+
+select count(*) from salarie;
+
+select count(*) from salarier;
+
+select count(*) as 'Le nombre de salarier' from salarier;
+
+select name,LNAM,job,sal from salarier;
+
+select name,LNAME,job,sal from salarier;
+
+select id,sal as 'Salary',job,name as 'Name',LNAME as 'Last Name' from salarier;
+
+select * from salarier where sal > 14.25 and sal < 20.0;
+
+select count(*) from salarier where sal > 14.25 and sal < 20.0;
+
+select * from salarier;
+
+select * from salarier where job = 'CODER';
+
+select * from salarier where sal <> 14.25;
+
+select * from salarier where id <> 1;
+
+select * from salarier where job in ('CODER','CLERK');
+
+select * from salarier where job in ('CODER','CLERK') and sal = 15.25 ;
+
+select * from salarier where job in ('CODER','CLERK') and sal = 15.25  and name='reda';
+
+select * from salarier order by id;
+
+select * from salarier order by id desc;
+
+select * from salarier order by name asc;
+
+select * from salarier order by sal desc;
+
+select * from salarier order by sal desc limit 3;
+
+select * from salarier order by sal desc limit 3 where id = 3;
+
+select * from salarier where job='CODER' order by sal desc limit 3;
+
+alter table salarier drop id;
+
+alter table salarier drop job;
+
+describe table salarier;
+
+select * from salarier;
+
+drop table salarier;
+
+drop keyspace test;
+
+describe keyspace test;

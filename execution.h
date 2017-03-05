@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <jansson.h>
 #include <stdarg.h>
-
+#include <unistd.h>;
 
 #ifdef _WIN32
 #define DELETECMD "rmdir -/S "
@@ -27,6 +27,7 @@ typedef struct node
 }node;
 
 extern char *results[150];
+extern int dsc;
 //*****************----------****************
 enum EXEC_CODES{
   OPEN_ERROR,
@@ -79,7 +80,14 @@ enum EXEC_CODES{
   ALL_PRIMARY_HERE,
   MISSING_PRIMARY,
   MISSING_COLUMN,
-  ALL_COLUMNS
+  ALL_COLUMNS,
+  USER_EXISTS,
+  USER_ADDED,
+  USER_NOT_FOUND,
+  USER_DELETED,
+  USERS_SAVED,
+  USER_ALTERED,
+  USER_NOT_ALTERED
 };
 typedef struct Cell{
   int size;
@@ -278,3 +286,11 @@ void concatRows(node *n1,node *n2,TableConfig * t);
 void limitData(node *n1,int limit);
 int checkTable(char*keyspaceName,char*tableName);
 int showSelectResult(char*keyspaceName,char*tableName,node*listColumn,node*asNames,tableData *dataTable);
+int alterUser(Row *row);
+int saveUsersList(node *users);
+int dropUser(char *userName);
+node *getUser(char *userName);
+node* getUsers();
+int createUser(Row *r);
+bool findUser(char *user);
+int filterFloats(tableData*data,TableConfig*t,int ops,float value,int column);

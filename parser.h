@@ -34,7 +34,8 @@ extern node* asNames;
 extern bool count_flag;
 extern bool in_flag;
 extern node* andOrIn;
-
+extern char *userName;
+extern char* describe_keyspace;
 
 void _test_symbol(code_token_t);
 void isTableName(void);

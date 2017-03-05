@@ -1,0 +1,1 @@
+{"columnCount": 3, "columnNames": ["name", "lname", "sal"], "columnTypes": ["string", "string", "float"], "pkCount": 2, "primaryKeys": [0, 2]}

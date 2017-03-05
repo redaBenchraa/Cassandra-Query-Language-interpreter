@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include "parser.h"
+#include "resultHandler.h"
+
+resultNode *resultList;
+int dsc;
+
 Token * tokenList;
 Token current_token;
 Token last_token;
@@ -38,6 +43,8 @@ int orderBy;
 bool ready_for_execution;
 bool in_flag = true;
 char lastOp[5];
+char *userName;
+char* describe_keyspace;
 void getToken(){
     if(tokenList != NULL){
         memcpy(&last_token,&current_token,sizeof(Token));
@@ -59,13 +66,16 @@ int search_column(char* colName){
 void print_error_token(int code)
 {
     if( ready_for_execution == true ){
+        char * result = malloc(256); 
         if( code == ERROR_TOKEN)
         {
-                printf("Erreur Lexical [%s] dans la  Ligne [%d] Column [%d] \n\n",current_token.value,current_token.row,current_token.col);
+                sprintf(result,"Erreur Lexical [%s] dans la  Ligne [%d] Column [%d]\n",current_token.value,current_token.row,current_token.col);
+                pushResult(result,sizeofString(result)+1);
         }
         else
         {
-                printf("Erreur Syntaxique [%s] dans la Ligne [%d] Column [%d] \n\n",current_token.value, current_token.row, current_token.col);
+                sprintf(result,"Erreur Syntaxique [%s] dans la Ligne [%d] Column [%d]\n",current_token.value, current_token.row, current_token.col);
+                pushResult(result,sizeofString(result)+1);
         }
         ready_for_execution = false;
     }
@@ -80,7 +90,9 @@ void parse()
     }
     else
     {
-        printf("\nErreur en parsing\n");
+        char*result = malloc(250);
+        sprintf(result,"%s","\nErreur en parsing\n");
+        pushResult(result,sizeofString(result)+1);
     }
 }
 
@@ -88,6 +100,9 @@ void _program()
 {
     while(current_token.code != END_TOKEN)
     {
+        userName = (char*)malloc(20*sizeof(char));
+        describe_keyspace = (char*)malloc(20*sizeof(char));
+        resultList = NULL;
         indexes = NULL;
         newValues = NULL;
         indexesWhere = NULL;
@@ -98,6 +113,7 @@ void _program()
         asNames = NULL;
         columnNames = NULL;
         columnTypes = NULL;
+        primaryKeys = NULL;
         inTypes = NULL;
         inValues = NULL;
         columnCount = 0;
@@ -108,7 +124,10 @@ void _program()
         in_flag = false;
         ready_for_execution = true;
         node* andOrIn;
-        CURRENT_PARENT_INST = current_token.code ;
+        CURRENT_PARENT_INST = current_token.code;
+        row = (Row*) malloc(sizeof(Row));
+        row->state = 1;
+        row->cells = NULL;
         switch(current_token.code)
         {
         case CREATE_TOKEN   : _create_statement();  break;
@@ -121,16 +140,43 @@ void _program()
         case SELECT_TOKEN   : _select_statement();  break;
         case BEGIN_TOKEN    : _batch_statement();   break;
         case DELETE_TOKEN   : _delete_statement();  break;
-        //case GRANT_TOKEN    : _grant_statement();   break;
+        case DESCRIBE_TOKEN   : _describe_statement();  break;
+        case LIST_TOKEN     : _list_statement();    break;
         //REVOKE_TOKEN   : _revoke_statement();  break;
-        //case LIST_TOKEN     : _list_statement();    break;
+        //case GRANT_TOKEN    : _grant_statement();   break;
         default             :  print_error_token(current_token.code);
         }
         _test_symbol(PV_TOKEN);
         if(ready_for_execution == true) 
             interpret();
         //reset_states();
+        sendResult();
+
     }
+}
+
+
+void _describe_statement()
+{
+    _test_symbol(DESCRIBE_TOKEN);
+    CURRENT_CHILD_INST = current_token.code ;
+    switch(current_token.code)
+    {
+    case KEYSPACE_TOKEN     : getToken(); _describe_keyspace_statement();         break;
+    case TABLE_TOKEN        : getToken(); _describe_table_statement();            break;
+    default : print_error_token(current_token.code); getToken();
+    }
+}
+
+
+void _describe_keyspace_statement()
+{
+    _test_symbol(IDENTIFIER_TOKEN);
+    strcpy(describe_keyspace, last_token.value);
+}
+void _describe_table_statement()
+{   
+    isTableName();
 }
 
 
@@ -145,9 +191,10 @@ void _create_statement()
     case COLUMNFAMILY_TOKEN : getToken(); _create_table_statement();            break;
     case INDEX_TOKEN        : getToken(); _create_index_statement();            break;
     case TYPE_TOKEN         : getToken(); _create_type_statement();             break;
+    case USER_TOKEN         : getToken(); _create_user_statement();             break;
+    case CUSTOM_TOKEN       : getToken();_test_symbol(INDEX_TOKEN); _create_index_statement(); break;
     //case MATERIALIZED_TOKEN : getToken(); _create_materialized_statement();     break;
     //case ROLE_TOKEN         : getToken(); _create_role_statement();             break;
-    //case USER_TOKEN         : getToken(); _create_user_statement();             break;
     //case TRIGGER_TOKEN      : getToken(); _create_trigger_statement();          break;
     //case FUNCTION_TOKEN     : getToken(); _create_function_statement();         break;
     //case AGGREGATE_TOKEN    : getToken(); _create_aggregate_statement();        break;
@@ -163,11 +210,7 @@ void _create_statement()
         }
         break;
     */
-    case CUSTOM_TOKEN       :
-        getToken();
-        _test_symbol(INDEX_TOKEN);
-        _create_index_statement();
-        break;
+
     default : print_error_token(current_token.code); getToken();
     }
 }
@@ -181,8 +224,8 @@ void _alter_statement()
     case KEYSPACE_TOKEN  :  getToken();      _alter_keyspace_statement();    break;
     case TABLE_TOKEN     :  getToken();      _alter_table_statement();       break;
     case TYPE_TOKEN      :  getToken();      _alter_type_statement();        break;
+    case USER_TOKEN      :  getToken();      _alter_user_statement();        break;
     //case ROLE_TOKEN      :  getToken();      _alter_role_statement();        break;
-    //case USER_TOKEN      :  getToken();      _alter_user_statement();        break;
     default:    print_error_token(current_token.code);  getToken();          break;
     }
 }
@@ -196,8 +239,8 @@ void _drop_statement()
     case TABLE_TOKEN     :  getToken();      _drop_table_statement();         break;
     case INDEX_TOKEN     :  getToken();      _drop_index_statement();         break;
     case TYPE_TOKEN      :  getToken();      _drop_type_statement();          break;
+    case USER_TOKEN      :  getToken();      _drop_user_statement();          break;
     //case ROLE_TOKEN      :  getToken();      _drop_role_statement();          break;
-    //case USER_TOKEN      :  getToken();      _drop_user_statement();          break;
     ///case FUNCTION_TOKEN  :  getToken();      _drop_function_statement();      break;
     //case AGGREGATE_TOKEN :  getToken();      _drop_aggregate_statement();     break;
     //case TRIGGER_TOKEN   :  getToken();      _drop_trigger_statement();       break;
@@ -237,7 +280,6 @@ void _create_table_statement()
         getToken();
         _table_options();
     }
-    //print_table(current_table);
 }
 
 
@@ -353,10 +395,7 @@ void _select_statement() {
     else _select_clause();
 
     _test_symbol(FROM_TOKEN);
-    //if(current_token.code==TABLE_FUNCTION_NAME_TOKEN || current_token.code==IDENTIFIER_TOKEN);
-    //else print_error_token(current_token.code);
     isTableName();
-    //getToken();
     switch(current_token.code){
     case WHERE_TOKEN: getToken(); _where_clause(); break;
     case ORDER_TOKEN: getToken(); _test_symbol(BY_TOKEN); _order_by_clause(); break;
@@ -368,17 +407,12 @@ void _select_statement() {
 }
 
 void _insert_statement(void){
-    row = (Row*) malloc(sizeof(Row));
-    row->state = 1;
-    row->cells = NULL;
     _test_symbol(INSERT_TOKEN);
     _test_symbol(INTO_TOKEN);
     isTableName();
-    //Ici le control semantique
     _insert_statement_aux();
     _if_not_exists();
     _option_using();
-    //print_column(Head_Column_Of_Table);
 }
 
 void _delete_statement(void) {
@@ -417,8 +451,6 @@ void _batch_statement(void){
 
 void _update_statement(void){
     _test_symbol(UPDATE_TOKEN);
-    //if(current_token.code==TABLE_FUNCTION_NAME_TOKEN || current_token.code==IDENTIFIER_TOKEN) getToken();
-    //else print_error_token(current_token.code);
     isTableName();
     if(current_token.code==USING_TOKEN){
         _option_using();
@@ -448,12 +480,7 @@ void _update_statement(void){
 void _test_symbol(int code)
 {
     if(current_token.code == code  || (code == IDENTIFIER_TOKEN  &&  current_token.code >= 62 ) );
-    else
-    {
-        //expected_words(1,code);
-       //no_error = false;
-        print_error_token(current_token.code);
-    }
+    else  print_error_token(current_token.code);
     getToken();
 }
 
@@ -463,21 +490,11 @@ void isTableName()
     {
         table_name = malloc(100*sizeof(1));
         strcpy(table_name,current_token.value);
-        // the function  serch if there is any table in the current Keyspace with the same name
-          /*if(is_exist_table(current_token.value))
-              {
-                //creer_sm_error(TABLE_DEJA_DECLAREE , current_token.row , current_token.value);
-              }
-         else
-              {
-                //current_table = create_table(current_token.value);
-              }*/
-
     }
     else{
         print_error_token(current_token.code);
     }
-        getToken();
+    getToken();
 }
 
 void _alter_table_instruction()
@@ -585,7 +602,6 @@ void _exist_aux()
 }
 void _cql_type()
 {
-    //Map and set are not implemented are they?
     if(current_token.code==HEX_TOKEN
             || current_token.code==BLOB_TOKEN
             || current_token.code==BOOLEAN_TOKEN
@@ -593,14 +609,12 @@ void _cql_type()
             || current_token.code==INT_TOKEN
             || current_token.code==STRING_TOKEN
             || current_token.code==UUID_TOKEN){
-        //current_column_type = current_token.code;
         column_type1 = malloc(100*sizeof(char));
         strcpy(column_type1,current_token.value);
         pushToList(&columnTypes, current_token.value, sizeofString(current_token.value)+1);  
         getToken();
     }
     else if(current_token.code==MAP_TOKEN){
-       //current_column_type = current_token.code;
         getToken();
         _test_symbol(INF_TOKEN);
         _cql_type();
@@ -609,7 +623,6 @@ void _cql_type()
         _test_symbol(SUP_TOKEN);
     }
     else if(current_token.code == SET_TOKEN || current_token.code==LIST_TOKEN){
-        //current_column_type = current_token.code;
         getToken();
         _test_symbol(INF_TOKEN);
         _cql_type();
@@ -626,7 +639,6 @@ void _cql_type()
         else;
     }
     else if(current_token.code==STRING_TOKEN){
-       //current_column_type = current_token.code;
         getToken();
     }
     else {
@@ -638,12 +650,8 @@ void _cql_type()
 void _column_defenition()
 {
     char* col_name;
-    //bool primaryKey = false;
     last_token.code = current_token.code ;
-    //strcpy(last_token.value,current_token.value);
     _test_symbol(IDENTIFIER_TOKEN);
-
-    //Contr
     col_name = (char*) malloc(strlen(last_token.value)*sizeof(char));
     strcpy(col_name, last_token.value);
 
@@ -651,7 +659,6 @@ void _column_defenition()
     if(current_token.code == STATIC_TOKEN) getToken();
     if(current_token.code == PRIMARY_TOKEN)
     {
-        //primaryKey = true;
         getToken();
         if(current_token.code == KEY_TOKEN) {
             int c = getColumnIndex1(columnNames,col_name);
@@ -667,8 +674,11 @@ void _column_defenition()
         pushToList(&columnNames, col_name, sizeofString(col_name)+1);
         columnCount++;
     }else {
-        printf("error %d\n",result);
+        char*result = malloc(250);
+        sprintf(result,"columng name(%s) used more than once\n",col_name);
+        pushResult(result,sizeofString(result)+1);
         no_error = false;
+        ready_for_execution = false;
     }
 
 }
@@ -710,11 +720,14 @@ void _partition_key()
             pushToList(&primaryKeys, &c, sizeof(int));
             pkCount++;
         }else{
-            printf("ERROR %d\n",result );
+            c = -1;
+            pushToList(&primaryKeys, &c, sizeof(int));
+            pkCount++;
         }
         getToken(); 
         break;
-    case PO_TOKEN         : getToken();
+    case PO_TOKEN : 
+        getToken();
         _test_symbol(IDENTIFIER_TOKEN);
         result = search_column(last_token.value);
         if(result == COLUMN_ALREADY_EXISTS){
@@ -722,7 +735,9 @@ void _partition_key()
             pushToList(&primaryKeys, &c, sizeof(int));
             pkCount++;
         }else{
-            printf("ERROR %d\n",result );
+            c = -1;
+            pushToList(&primaryKeys, &c, sizeof(int));
+            pkCount++;
         }
         while(current_token.code == VIR_TOKEN)
         {
@@ -734,7 +749,9 @@ void _partition_key()
                 pushToList(&primaryKeys, &c, sizeof(int));
                 pkCount++;
             }else{
-                printf("ERROR %d\n",result );
+                c = -1;
+                pushToList(&primaryKeys, &c, sizeof(int));
+                pkCount++;
             }
         }
         _test_symbol(PF_TOKEN);
@@ -757,7 +774,9 @@ void _clustring_columns()
             pushToList(&primaryKeys, &c, sizeof(int));
             pkCount++;
         }else{
-            printf("ERROR %d\n",result );
+            c = -1;
+            pushToList(&primaryKeys, &c, sizeof(int));
+            pkCount++;
         }
         while(current_token.code == VIR_TOKEN)
         {
@@ -769,7 +788,9 @@ void _clustring_columns()
                 pushToList(&primaryKeys, &c, sizeof(int));
                 pkCount++;
             }else{
-                printf("ERROR %d\n",result );
+                c = -1;
+                pushToList(&primaryKeys, &c, sizeof(int));
+                pkCount++;
             }
         }
     }
@@ -872,11 +893,8 @@ void _option()
     _test_symbol(EG_TOKEN);
     switch(current_token.code)
     {
-    //Soit IDF
     case IDENTIFIER_TOKEN   : getToken(); break;
-        //Soit map_literal
     case ACOLADO_TOKEN      : getToken(); _map_literal(); break;
-        //Soit const
     default                 : _constant();
     }
 }
@@ -926,18 +944,15 @@ void _term()
     case ACOLADO_TOKEN      : getToken(); _aux_1();  _test_symbol(ACOLADF_TOKEN); break;
     case CROCHO_TOKEN       : getToken(); _aux_2();  _test_symbol(CROCHF_TOKEN);  break;
     case PO_TOKEN           : getToken(); _aux_3();                               break;
-        //IDFprint_current_token();
     case IDENTIFIER_TOKEN   : getToken();
         _test_symbol(PO_TOKEN);
         _aux_4();
         _test_symbol(PF_TOKEN);
         break;
-        //
     case PI_TOKEN           : getToken(); break;
     case DEUXP_TOKEN        : getToken();
         _test_symbol(IDENTIFIER_TOKEN);
         break;
-        //Const
     default                 : _constant();
     }
 }
@@ -1091,9 +1106,7 @@ void _if_not_exists()
             getToken();
         }
         _test_symbol(EXISTS_TOKEN);
-
     }
-
 }
 
 void _tuple_literal(void){
@@ -1359,9 +1372,7 @@ void _relation(void){
             _test_symbol(IDENTIFIER_TOKEN);
         }
         _test_symbol(PF_TOKEN);
-        /* _operator();
 
-       _tuple_literal();*/
     }
     else if(current_token.code==TOKEN_TOKEN){
         getToken();
@@ -1391,6 +1402,7 @@ void _operator(void){
             || current_token.code==IN_TOKEN)
     {
         if(current_token.code==IN_TOKEN){
+            printf("%s %d\n",current_token.value,current_token.code);
             pushToList(&valuesWhere, current_token.value,sizeofString(current_token.value)+1);
             pushToList(&TypesWhere, &current_token.code,sizeof(int)); 
         }
@@ -1403,8 +1415,7 @@ void _operator(void){
         getToken();
         _test_symbol(KEY_TOKEN);
     }
-    else print_error_token(current_token.code); //getToken();
-
+    else print_error_token(current_token.code); 
 }
 
 void _option_using(void){
@@ -1430,7 +1441,7 @@ void _update_parametre_aux(void){
     if(current_token.code==TIMESTAMP_TOKEN || current_token.code==TTL_TOKEN){
         getToken();
     }
-    else print_error_token(current_token.code); //getToken();
+    else print_error_token(current_token.code); 
 
 }
 
@@ -1444,7 +1455,7 @@ void _option_type_aux(void){
         getToken();
         _test_symbol(IDENTIFIER_TOKEN);
     }
-    else print_error_token(current_token.code); //getToken();
+    else print_error_token(current_token.code);
 
 }
 
@@ -1463,7 +1474,6 @@ void _assignment_aux(void){
         _term();
     }
 
-    // to do check field_name
     else if(current_token.code==P_TOKEN){
         getToken();
         _test_symbol(IDENTIFIER_TOKEN);
@@ -1474,10 +1484,9 @@ void _assignment_aux(void){
         getToken();
         pushToList(&newValues,current_token.value,sizeofString(current_token.value)+1);
         pushToList(&types,&current_token.code,sizeof(int));
-        //_aff_column_name(); //À revoir par rapport à la grammaire
         _term();
     }
-    else print_error_token(current_token.code); //getToken();
+    else print_error_token(current_token.code); 
 
 
 }
@@ -1557,6 +1566,50 @@ void _condition(void){
         _term();
     }
 
+}
+void _create_user_statement()
+{
+    pushToList(&row->cells, initCell(current_token.value),sizeof(Cell));
+  _test_symbol(IDENTIFIER_TOKEN);
+  if(current_token.code == WITH_TOKEN)
+  {
+      getToken();
+      _test_symbol(PASSWORD_TOKEN);
+        pushToList(&row->cells, initCell(current_token.value),sizeof(Cell));
+      _test_symbol(STRING_TOKEN);
+  }
+
+}
+
+void _alter_user_statement()
+{   
+    pushToList(&row->cells, initCell(current_token.value),sizeof(Cell));
+    _test_symbol(IDENTIFIER_TOKEN);
+    _test_symbol(WITH_TOKEN);
+    _test_symbol(PASSWORD_TOKEN);
+    pushToList(&row->cells, initCell(current_token.value),sizeof(Cell));
+    _test_symbol(STRING_TOKEN);
+
+}
+
+void _drop_user_statement()
+{
+    strcpy(userName,current_token.value);
+    _test_symbol(IDENTIFIER_TOKEN);
+}
+
+void _list_statement(){
+    _test_symbol(LIST_TOKEN);
+    
+    if(current_token.code==USERS_TOKEN){
+        _list_users_statement();
+    }
+    
+}
+
+
+void _list_users_statement(){
+    _test_symbol(USERS_TOKEN);
 }
 
 
@@ -1721,20 +1774,7 @@ void _condition(void){
     }
 }*/
 
-/*void _create_user_statement()
-{
-  _if_not_exists();
-  _test_symbol(IDENTIFIER_TOKEN);
-  if(current_token.code == WITH_TOKEN)
-  {
-      getToken();
-      _test_symbol(PASSWORD_TOKEN);
-      _test_symbol(STRING_TOKEN);
-  }
 
-  if( current_token.code == SUPERUSER_TOKEN || current_token.code == NOSUPERUSER_TOKEN)
-      getToken();
-}*/
 
 /*void _create_trigger_statement()
 {
@@ -1785,24 +1825,7 @@ void _condition(void){
 
 }
 
-void _alter_user_statement()
-{
-    _test_symbol(IDENTIFIER_TOKEN);
-    switch (current_token.code) {
 
-    case WITH_TOKEN :
-        getToken();
-        _test_symbol(PASSWORD_TOKEN);
-        _test_symbol(STRING_TOKEN);
-        break;
-
-    case SUPERUSER_TOKEN :      getToken();    break;
-
-    case NOSUPERUSER_TOKEN :    getToken();    break;
-
-    default:   print_error_token(current_token.code);   break;
-    }
-}*/
 /*void _drop_role_statement()
 {
     _if_exist();
@@ -1816,11 +1839,6 @@ void _alter_user_statement()
     _test_symbol(IDENTIFIER_TOKEN);
 }*/
 
-/*void _drop_user_statement()
-{
-    _if_exist();
-    _test_symbol(IDENTIFIER_TOKEN);
-}*/
 
 /*void _drop_function_statement()
 {
@@ -1897,17 +1915,7 @@ void _alter_user_statement()
 
 }*/
 
-/*void _list_statement(){
-    _test_symbol(LIST_TOKEN);
-    if(current_token.code==ROLES_TOKEN){
-        _list_roles_statement();
-    }
-    else if(current_token.code==USERS_TOKEN){
-        _list_users_statement();
-    }
-    else
-        _list_permissions_statement();
-}*/
+
 
 /*void _list_roles_statement(){
     _test_symbol(ROLES_TOKEN);
@@ -1915,9 +1923,6 @@ void _alter_user_statement()
     _no_recursive_statement();
 }*/
 
-/*void _list_users_statement(){
-    _test_symbol(USERS_TOKEN);
-}*/
 
 /*void _list_permissions_statement(){
     _permissions();

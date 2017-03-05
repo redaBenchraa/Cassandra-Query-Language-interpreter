@@ -1,0 +1,5 @@
+rm CqlClient CqlServer
+gcc Cql-Client.c -o CqlClient
+gcc Cql-Server.c tokenizer.c parser.c interpreter.c execution.c resultHandler.c -ljansson -o CqlServer
+gnome-terminal -x sh -c "./CqlServer; bash"
+gnome-terminal -x sh -c "./CqlClient; bash"

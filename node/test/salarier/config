@@ -1,0 +1,1 @@
+{"columnCount": 5, "columnNames": ["id", "name", "LNAME", "sal", "job"], "columnTypes": ["integer", "string", "string", "float", "string"], "pkCount": 2, "primaryKeys": [0, 1]}

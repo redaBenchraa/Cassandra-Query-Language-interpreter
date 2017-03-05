@@ -92,6 +92,10 @@ char KEYWORDS[][MAX_WORD_LEN] = {
 		"token",
 		"contains",
 		"rename",
+		"user",
+		"users",
+		"password",
+		"describe",
     // Operators
 
     "+",

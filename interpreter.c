@@ -71,6 +71,10 @@ char KEYWORDS1[][50] = {
 		"token",
 		"contains",
 		"rename",
+		"user",
+		"users",
+		"password",
+		"describe",
     // Operators
 
     "+",
@@ -131,12 +135,19 @@ char KEYWORDS1[][50] = {
 	"error"
 };
 void interpret(){
-	if(CURRENT_PARENT_INST != USE_TOKEN 
+	if(CURRENT_PARENT_INST != USE_TOKEN && CURRENT_PARENT_INST != LIST_TOKEN 
 		&& !(CURRENT_PARENT_INST == CREATE_TOKEN && CURRENT_CHILD_INST == KEYSPACE_TOKEN)
+		&& !(CURRENT_PARENT_INST == DESCRIBE_TOKEN && CURRENT_CHILD_INST == KEYSPACE_TOKEN)
+		&& !(CURRENT_PARENT_INST == CREATE_TOKEN && CURRENT_CHILD_INST == USER_TOKEN)
+		&& !(CURRENT_PARENT_INST == DROP_TOKEN && CURRENT_CHILD_INST == USER_TOKEN)
+		&& !(CURRENT_PARENT_INST == ALTER_TOKEN && CURRENT_CHILD_INST == USER_TOKEN)
 		&& !(CURRENT_PARENT_INST == DROP_TOKEN && CURRENT_CHILD_INST == KEYSPACE_TOKEN) 
 		&& current_keyspace == NULL)
 	{
-		printf("Il faut d'abord specifier la base de donees\n");
+		char * result = malloc(256); 
+		sprintf(result,"%s","Il faut d'abord specifier la base de donees\n");
+		pushResult(result,sizeofString(result)+1);
+		//printf("Il faut d'abord specifier la base de donees\n");
 	}else{
 		switch(CURRENT_PARENT_INST){
 	        case USE_TOKEN      : use_interpreter();     break;
@@ -149,6 +160,8 @@ void interpret(){
 	        case SELECT_TOKEN   : select_interpreter();  break;
 	        case BEGIN_TOKEN    : batch_interpreter();   break;
 	        case DELETE_TOKEN   : delete_interpreter();  break;
+	        case LIST_TOKEN		: list_interpreter(); 	 break;
+	        case DESCRIBE_TOKEN	: describe_interpreter(); 	 break;
 	        default             : break;//print_error_token(current_token.code);
 		}
 	}
@@ -157,23 +170,107 @@ void interpret(){
 
 void use_interpreter(){
 	if(checkKeyspace(current_keyspace) == FOLDER_NOT_EXISTS){
-		printf("Le keyspace n'existe pas\n");
+        char * result = malloc(256); 
+        sprintf(result,"%s","Le keyspace n'existe pas\n");
+        pushResult(result,sizeofString(result)+1);
+		//printf("Le keyspace n'existe pas\n");
 		free(current_keyspace);
 		current_keyspace = NULL;
+	}else{
+		char * result = malloc(256); 
+		sprintf(result,"Le Keyspace courant est %s\n",current_keyspace);
+		pushResult(result,sizeofString(result)+1);
 	}
 }
 //----------------------------------------------------
+void describe_interpreter(){
+	switch(CURRENT_CHILD_INST){
+		case TABLE_TOKEN : interpret_describeTable();break;
+		case KEYSPACE_TOKEN :  interpret_describeKeyspace();break;
+    	default : printf("%s\n",table_name);break;
+	}
+}
+//---------------------------------------------------
+void interpret_describeTable(){
+	if(checkTable(current_keyspace,table_name) == FOLDER_EXISTS){
+		TableConfig * t = readTableConfig(current_keyspace,table_name);
+		char * result = malloc(256); 
+	    sprintf(result,"==========La table : %s===========\n",table_name);
+	    pushResult(result,sizeofString(result)+1);
+	    result = malloc(256); 
+	    sprintf(result,"Le nombre des columns : %d\n",t->columnCount);
+	    pushResult(result,sizeofString(result)+1);
+	    node *col = t->columnNames;
+	    node *types = t->columnTypes;
+	    node *pks = t->primaryKeys;
+		while(col != NULL){
+			result = malloc(256); 
+	    	sprintf(result,"%s\t%s\n",(char*) col->data,(char*) types->data);
+	    	pushResult(result,sizeofString(result)+1);	
+	    	col = col->next;
+	    	types = types->next;
+		}
+		result = malloc(256); 
+	    sprintf(result,"%d Primary keys :",t->pkCount);
+	    pushResult(result,sizeofString(result)+1);
+	    while(pks != NULL){
+			result = malloc(256); 
+			int index = *(int*)pks->data;
+	    	sprintf(result,"%s ",getColumnName(current_keyspace,table_name,index));
+	    	pushResult(result,sizeofString(result)+1);	
+	    	pks = pks->next;
+	    }
+	    result = malloc(256); 
+	    sprintf(result,"\n==================================\n",table_name);
+	    pushResult(result,sizeofString(result)+1);
+	}else{
+
+		char * result = malloc(256); 
+	    sprintf(result,"La table '%s' n'existe pas dans '%s'\n",table_name,current_keyspace);
+	    pushResult(result,sizeofString(result)+1);
+	}
+}
+void interpret_describeKeyspace(){
+	if(checkKeyspace(describe_keyspace) != FOLDER_NOT_EXISTS){
+		char * result = malloc(256); 
+	    sprintf(result,"=========== Keyspace : %s===========\n",describe_keyspace);
+	    pushResult(result,sizeofString(result)+1);
+		keyspaceConfig *config =readKeyspaceConfig(describe_keyspace);
+		node * tables = config->tableNames ;
+		while(tables!=NULL){
+			result = malloc(256); 
+			sprintf(result,"%s\n",(char*)tables->data);
+			pushResult(result,sizeofString(result)+1);
+			tables = tables->next;
+		}
+		result = malloc(256); 
+	    sprintf(result,"\n==================================\n",table_name);
+	    pushResult(result,sizeofString(result)+1);
+	}else{
+		char * result = malloc(256); 
+        sprintf(result,"%s","Le keyspace n'existe pas\n");
+        pushResult(result,sizeofString(result)+1);
+		free(describe_keyspace);
+		describe_keyspace = NULL;
+	}
+	
+}
+//---------------------------------------------------
 void create_interpreter(){	
 	switch(CURRENT_CHILD_INST){
 		case TABLE_TOKEN : interpret_createTable();break;
 		case KEYSPACE_TOKEN :  interpret_createKeyspace();break;
+		case USER_TOKEN : interpret_createUser();break;
     	default : break;
 	}
 }
 void interpret_createTable(){
 	if(checkTable(current_keyspace,table_name) != FOLDER_EXISTS){
 	    if(current_keyspace == NULL){
-	        printf("keyspace NULL\n");
+        	char * result = malloc(256); 
+	        sprintf(result,"%s","keyspace NULL\n");
+	        pushResult(result,sizeofString(result)+1);	    	
+	        //printf("keyspace NULL\n");
 	    }
 	    else{
 	        TableConfig *config = malloc(sizeof(TableConfig));
@@ -181,11 +278,42 @@ void interpret_createTable(){
 	        config->columnTypes = columnTypes;
 	        config->primaryKeys = primaryKeys;
 	        config->columnCount = columnCount;
+	        if(primaryKeys != NULL){
+	        	node *pks = primaryKeys;
+	        	while ( pks != NULL )
+	        	{
+	        		printf("PK : %d\n",*(int*)pks->data);
+	        		bool found = false;
+	        	 	node* columns = columnNames;
+					int i= 0;
+	        	 	while(columns != NULL){
+	        	 		int index1 = *(int*) pks->data;
+	        	 		if(index1 == i) found = true;
+	        	 		columns = columns->next;
+	        	 		i++;
+	        	 	}
+	        	 	if(found == false){
+	        	 		char * result = malloc(256); 
+	        			sprintf(result,"primary keys list isn't consistant\n");
+	        			pushResult(result,sizeofString(result)+1);
+	        	 		return;
+	        	 	}
+	        	 	pks = pks->next;
+
+	        	}
+	        } 
 	        config->pkCount = pkCount;
 	        int i = createTable(current_keyspace,table_name,config);
-	        printf("%d",results[i]);
+			char * result = malloc(	256); 
+	        sprintf(result,"%s\n",results[i]);
+	        pushResult(result,sizeofString(result)+1);
 	    }
-	}else printf("La table '%s' existe deja dans '%s'\n",table_name,current_keyspace);
+	}else {
+		char * result = malloc(256); 
+	    sprintf(result,"La table '%s' existe deja dans '%s'\n",table_name,current_keyspace);
+	    pushResult(result,sizeofString(result)+1);
+		//printf("La table '%s' existe deja dans '%s'\n",table_name,current_keyspace);
+	}
 
 }
 void interpret_createKeyspace(){
@@ -194,31 +322,39 @@ void interpret_createKeyspace(){
 	config.tableNames =  NULL;
 	int i = createKeyspace(current_keyspace,&config);
 	int j = saveKeySpaceConfig(current_keyspace,&config);
-	printf("%s \n%s\n",results[i],results[j]);
+	char * result = malloc(256); 
+	sprintf(result,"%s \n%s\n",results[i],results[j]);
+	pushResult(result,sizeofString(result)+1);
+	//printf("%s \n%s\n",results[i],results[j]);
 }
 //----------------------------------------------------
 void alter_interpreter(){
 	switch(CURRENT_CHILD_INST){
 		case TABLE_TOKEN : interpret_alterTable();break;
 		case KEYSPACE_TOKEN :  interpret_alterKeyspace();break;
+		case USER_TOKEN :  interpret_alterUser();break;
     	default : break;
 	}	
 }
 void interpret_alterTable(){
-	int result;
+	int res;
 	switch(CURRENT_DESCENDANT_INST){
 		case ADD_TOKEN: 
-			result = alterTableAddColumn(current_keyspace,table_name,column_name1,column_type1);
+			res = alterTableAddColumn(current_keyspace,table_name,column_name1,column_type1);
 		break;
 		case DROP_TOKEN: 
-			result = alterTableDropColumn(current_keyspace,table_name,column_name1);
+			res = alterTableDropColumn(current_keyspace,table_name,column_name1);
 		break;
 		case RENAME_TOKEN: 
-			result = alterTableRenameColumn(current_keyspace,table_name,column_name1,column_name2);
+			res = alterTableRenameColumn(current_keyspace,table_name,column_name1,column_name2);
 		break;
+		case USER_TOKEN : interpret_alterUser();break;
 	  	default : break;
 	}
-	printf("%s\n",results[result]);
+	char * result = malloc(256); 
+	sprintf(result,"%s\n",results[res]);
+	pushResult(result,sizeofString(result)+1);
+	//printf("%s\n",results[result]);
 }
 void interpret_alterKeyspace(){
 	// Nothing to do here since we don't use nodes and clusters.
@@ -228,48 +364,93 @@ void drop_interpreter(){
 	switch(CURRENT_CHILD_INST){
 		case TABLE_TOKEN : interpret_dropTable();break;
 		case KEYSPACE_TOKEN :  interpret_dropKeyspace();break;
+		case USER_TOKEN : interpret_dropUser();break;
     	default : break;
 	}	
 }
 void interpret_dropTable(){
-	int result = deleteTable(current_keyspace,table_name);
-	printf("%s\n",results[result]);
+	int res = deleteTable(current_keyspace,table_name);
+	char * result = malloc(256); 
+	sprintf(result,"%s\n",results[res]);
+	pushResult(result,sizeofString(result)+1);
 }
 void interpret_dropKeyspace(){
-	int result = deleteKeyspace(column_name1);
-	printf("%s\n",results[result]);
+	int res = deleteKeyspace(column_name1);
+	char * result = malloc(256); 
+	sprintf(result,"%s\n",results[res]);
+	pushResult(result,sizeofString(result)+1);
 }
 //----------------------------------------------------
 void insert_interpreter(){
-	if( all_columns() == MISSING_COLUMN ) {printf("%s\n",results[all_columns()] ); return;}
+	if(checkTable(current_keyspace,table_name) == FOLDER_EXISTS){
+	if( all_columns() == MISSING_COLUMN ) {
+		char * result = malloc(256); 
+		sprintf(result,"%s\n",results[all_columns()]);
+		pushResult(result,sizeofString(result)+1);
+		//printf("%s\n",results[all_columns()] ); 
+		return;
+	}
 	int typeCheck = checkTypes(columnNames,types);
-	if(typeCheck == INCOMPATIBLE_TYPES) {printf("%s\n",results[typeCheck] ); return;}
+	if(typeCheck == INCOMPATIBLE_TYPES) {
+		char * result = malloc(256); 
+		sprintf(result,"%s\n",results[typeCheck]);
+		pushResult(result,sizeofString(result)+1);
+		return;
+	}
 	if(columnNames == NULL){
-		int result = insertRow(current_keyspace,table_name,row,NULL);
-		printf("%s\n",results[result]);
+		int res = insertRow(current_keyspace,table_name,row,NULL);
+		char * result = malloc(256); 
+		sprintf(result,"%s\n",results[res]);
+		pushResult(result,sizeofString(result)+1);
+
+		//printf("%s\n",results[res]);
 	}else{
 		int prim = all_primary(columnNames);
-		if (prim == MISSING_PRIMARY ) {printf("%s\n",results[prim]);return;}
+		if (prim == MISSING_PRIMARY ) {
+			char * result = malloc(256); 
+			sprintf(result,"%s\n",results[prim]);
+			pushResult(result,sizeofString(result)+1);		
+			//printf("%s\n",results[prim]);
+			return;
+		}
 		adapt_row();
-		int result = insertRow(current_keyspace,table_name,newRow,NULL);
-		printf("%s\n",results[result]);
+		int res = insertRow(current_keyspace,table_name,newRow,NULL);
+		char * result = malloc(256); 
+		sprintf(result,"%s\n",results[res]);
+		pushResult(result,sizeofString(result)+1);
+
+		//printf("%s\n",results[res]);
+		}
+	}else{
+		char * result = malloc(256); 
+		sprintf(result,"%s n'existe pas dans la liste des tables\n",table_name);
+		pushResult(result,sizeofString(result)+1);
 	}
 }
 //----------------------------------------------------
 void update_interpreter(){
-	bool error = false;
-	node * in = NULL;
-	int typesCheck;
-	tableData * dataTableAnd;
-	int i;
 	if(checkTable(current_keyspace,table_name) == FOLDER_EXISTS){
+		bool error = false;
+		node * in = NULL;
+		int typesCheck;
+		int i;
+		tableData * dataTable = readTableData(current_keyspace,table_name);
+		TableConfig *t = readTableConfig(current_keyspace,table_name);
 		typesCheck = checkTypes(indexes,types);
-		if(typesCheck == INCOMPATIBLE_TYPES) {printf("%s\n",results[typesCheck]); return;}
+		node * indexedTemp = indexes;
+		while ( indexedTemp != NULL )
+		{
+		  indexedTemp = indexedTemp->next;
+		  TypesWhere = TypesWhere->next;
+		}
 		while(indexes != NULL)
 		{
 			char*n=(char*)indexes->data;
 			int index = getColumnIndex(current_keyspace,table_name,n);
 			if(index < 0) {
+				char * result = malloc(256); 
+				sprintf(result,"%s n'existe pas dans la liste des columns\n",n);
+				pushResult(result,sizeofString(result)+1);
 				printf("%s n'existe pas dans la liste des columns\n",n);
 				error = true;
 			}
@@ -277,78 +458,27 @@ void update_interpreter(){
 			indexes = indexes->next;
 		}
 		if(error == false){
-			tableData * dataTable = readTableData(current_keyspace,table_name);
-			TableConfig *t = readTableConfig(current_keyspace,table_name);
-			
-			while(indexesWhere != NULL){
-				char*op=(char*)opsWhere->data;
-				char*n=(char*)indexesWhere->data;
-				int index = getColumnIndex(current_keyspace,table_name,n);
-				int value;
-				int ops;
-				if(strcasecmp(op,"in") == 0){
-					i=0;
-					while ( inValues != NULL )
-					{
-						if(strcmp(KEYWORDS1[*(int*)inTypes->data],getColumnType(t,index)) != 0 ) {
-							printf("If faut assinger un %s à %s\n",getColumnType(t,index),n );
-							return;
-						}
-						if(i == 0){
-							filterString(dataTable,t,inValues->data,index);
-						} else {
-							dataTableAnd = readTableData(current_keyspace,table_name); 
-							filterString(dataTableAnd,t,inValues->data,index);
-							if(dataTable->rowData == NULL) 
-								dataTable->rowData = dataTableAnd->rowData;
-							else if(dataTableAnd->rowData != NULL)
-								concatRows(dataTable->rowData,dataTableAnd->rowData,t);
-						}
-						i++;
-						inTypes = inTypes->next;
-						inValues = inValues->next;
-					}
-
-				}else{
-				char*nn=(char*)valuesWhere->data;
-					if(strcmp(KEYWORDS1[*(int*)TypesWhere->data],getColumnType(t,index)) != 0 ) {
-						printf("If faut assinger un %s à %s\n",getColumnType(t,index),n );
-						//return;
-					}
-					switch(*(int*)TypesWhere->data){
-						case INT_TOKEN: 
-							value = atoi(nn);
-							if(strcmp((char*) opsWhere->data,"<") == 0){
-								ops = OPS_INF;
-							}else if(strcmp((char*) opsWhere->data,">") == 0){
-								ops = OPS_SUP;
-							}else if(strcmp((char*) opsWhere->data,"<=") == 0){
-								ops = OPS_INFE;
-							}else if(strcmp((char*) opsWhere->data,">=") == 0){
-								ops = OPS_SUPE;
-							}else if(strcmp((char*) opsWhere->data,"=") == 0){
-								ops = OPS_EQ;
-							}else if(strcmp((char*) opsWhere->data,"!=") == 0){
-								ops = OPS_DIFF;
-							}
-							filterNumbers(dataTable,t,ops,value,index);
-						break;
-						case STRING_TOKEN: 
-								filterString(dataTable,t,nn,index);
-						break;
-						default:break;
-					}
-				}
-				indexesWhere = indexesWhere->next;
-				valuesWhere = valuesWhere->next;
-				TypesWhere = TypesWhere->next;
-				opsWhere = opsWhere->next;
+			if(typesCheck == INCOMPATIBLE_TYPES) {
+			char * result = malloc(256); 
+			sprintf(result,"%s\n",results[typesCheck]);
+			pushResult(result,sizeofString(result)+1);	
+			//printf("%s\n",results[typesCheck]); 
+			return;
 			}
-
-			int result = updateRows(current_keyspace,table_name,dataTable,in,newValues);
-			printf("%s\n",results[ROW_UPDATED]);
+			if(selectWhere(dataTable,t) != -1){
+				int res = updateRows(current_keyspace,table_name,dataTable,in,newValues);
+				char * result = malloc(256); 
+				sprintf(result,"%s\n",results[ROW_UPDATED]);
+				pushResult(result,sizeofString(result)+1);		
+				//printf("%s\n",results[ROW_UPDATED]);
+			}	
 		}
-	}else printf("%s n'existe pas dans la liste des tables\n",table_name);
+	}else {
+		char * result = malloc(256); 
+		sprintf(result,"%s n'existe pas dans la liste des tables\n",table_name);
+		pushResult(result,sizeofString(result)+1);
+		//printf("%s n'existe pas dans la liste des tables\n",table_name);
+	}
 }
 //----------------------------------------------------
 void delete_interpreter(){
@@ -356,7 +486,6 @@ void delete_interpreter(){
 		tableData * dataTable = readTableData(current_keyspace,table_name);
 		TableConfig *t = readTableConfig(current_keyspace,table_name);
 		node * in = NULL;
-		tableData * dataTableAnd;
 		bool error = false;
 		int i;
 		while(indexes != NULL)
@@ -364,97 +493,50 @@ void delete_interpreter(){
 			char*n=(char*)indexes->data;
 			int index = getColumnIndex(current_keyspace,table_name,n);
 			if(index < 0) {
-				printf("%s n'existe pas dans la liste des columns\n",n);
+				char * result = malloc(256); 
+				sprintf(result,"%s n'existe pas dans la liste des columns\n",n);
+				pushResult(result,sizeofString(result)+1);
+				//printf("%s n'existe pas dans la liste des columns\n",n);
 				error = true;
 			}
 	    	pushToList(&in,&index,sizeof(int));	
 			indexes = indexes->next;
 		}
 		if(error == false){
-			while(indexesWhere != NULL){
-				char*op=(char*)opsWhere->data;
-				char*n=(char*)indexesWhere->data;
-				int index = getColumnIndex(current_keyspace,table_name,n);
-				int value;
-				int ops;
-				if(strcasecmp(op,"in") == 0){
-					i=0;
-					while ( inValues != NULL )
-					{
-						if(strcmp(KEYWORDS1[*(int*)inTypes->data],getColumnType(t,index)) != 0 ) {
-							printf("If faut assinger un %s à %s\n",getColumnType(t,index),n );
-							return;
-						}
-						if(i == 0){
-							filterString(dataTable,t,inValues->data,index);
-						} else {
-							dataTableAnd = readTableData(current_keyspace,table_name); 
-							filterString(dataTableAnd,t,inValues->data,index);
-							if(dataTable->rowData == NULL) 
-								dataTable->rowData = dataTableAnd->rowData;
-							else if(dataTableAnd->rowData != NULL)
-								concatRows(dataTable->rowData,dataTableAnd->rowData,t);
-						}
-						i++;
-						inTypes = inTypes->next;
-						inValues = inValues->next;
-					}
-
-				}else{
-				char*nn=(char*)valuesWhere->data;
-					if(strcmp(KEYWORDS1[*(int*)TypesWhere->data],getColumnType(t,index)) != 0 ) {
-						printf("If faut assinger un %s à %s\n",getColumnType(t,index),n );
-						//return;
-					}
-					switch(*(int*)TypesWhere->data){
-						case INT_TOKEN: 
-							value = atoi(nn);
-							if(strcmp((char*) opsWhere->data,"<") == 0){
-								ops = OPS_INF;
-							}else if(strcmp((char*) opsWhere->data,">") == 0){
-								ops = OPS_SUP;
-							}else if(strcmp((char*) opsWhere->data,"<=") == 0){
-								ops = OPS_INFE;
-							}else if(strcmp((char*) opsWhere->data,">=") == 0){
-								ops = OPS_SUPE;
-							}else if(strcmp((char*) opsWhere->data,"=") == 0){
-								ops = OPS_EQ;
-							}else if(strcmp((char*) opsWhere->data,"!=") == 0){
-								ops = OPS_DIFF;
-							}
-							filterNumbers(dataTable,t,ops,value,index);
-						break;
-						case STRING_TOKEN: 
-								filterString(dataTable,t,nn,index);
-						break;
-						default:break;
-					}
-				}
-				indexesWhere = indexesWhere->next;
-				valuesWhere = valuesWhere->next;
-				TypesWhere = TypesWhere->next;
-				opsWhere = opsWhere->next;
+			if(selectWhere(dataTable,t) != -1){
+				printf("Size of delete : %d \n", getLinkedListSize(dataTable->rowData));
+				node *l= getKeysFromData(dataTable);
+				int res = deleteListRows(current_keyspace,table_name,l);
+				char * result = malloc(256); 
+				sprintf(result,"%s\n",results[ROW_DELETED]);
+				pushResult(result,sizeofString(result)+1);		
+				//printf("%s\n",results[ROW_DELETED]);
 			}
-			node *l= getKeysFromData(dataTable);
-			int result = deleteListRows(current_keyspace,table_name,l);
-			printf("%s\n",results[ROW_DELETED]);
 		}
-	}else printf("%s n'existe pas dans la liste des tables\n",table_name);
+	}else {
+		char * result = malloc(256); 
+		sprintf(result,"%s n'existe pas dans la liste des tables\n",table_name );
+		pushResult(result,sizeofString(result)+1);
+		//printf("%s n'existe pas dans la liste des tables\n",table_name);
+	}
 }
 //----------------------------------------------------
 void select_interpreter(){
 	if(checkTable(current_keyspace,table_name) == FOLDER_EXISTS){
-		tableData * dataTableAnd;
 		tableData * dataTable = readTableData(current_keyspace,table_name);
 		TableConfig *t = readTableConfig(current_keyspace,table_name);
 		bool error = false;
 		node * in = NULL;
 		int i;
+		printf("==============================================================\n");
 		while(indexes != NULL)
 		{
 			char*n=(char*)indexes->data;
 			int index = getColumnIndex(current_keyspace,table_name,n);
-			if(index < 0) {
+			if(index < 0){
+				char * result = malloc(256); 
+				sprintf(result,"%s n'existe pas dans la liste des columns\n",n);
+				pushResult(result,sizeofString(result)+1);
 				printf("%s n'existe pas dans la liste des columns\n",n);
 				error = true;
 			}
@@ -462,87 +544,37 @@ void select_interpreter(){
 			indexes = indexes->next;
 		}
 		if(error == false){
-
-			while(indexesWhere != NULL){
-				char*op=(char*)opsWhere->data;
-				char*n=(char*)indexesWhere->data;
-				int index = getColumnIndex(current_keyspace,table_name,n);
-				int value;
-				int ops;
-				if(strcasecmp(op,"in") == 0){
-					i=0;
-					while ( inValues != NULL )
-					{
-						if(strcmp(KEYWORDS1[*(int*)inTypes->data],getColumnType(t,index)) != 0 ) {
-							printf("If faut assinger un %s à %s\n",getColumnType(t,index),n );
-							return;
-						}
-						if(i == 0){
-							filterString(dataTable,t,inValues->data,index);
-						} else {
-							dataTableAnd = readTableData(current_keyspace,table_name); 
-							filterString(dataTableAnd,t,inValues->data,index);
-							if(dataTable->rowData == NULL) 
-								dataTable->rowData = dataTableAnd->rowData;
-							else if(dataTableAnd->rowData != NULL)
-								concatRows(dataTable->rowData,dataTableAnd->rowData,t);
-						}
-						i++;
-						inTypes = inTypes->next;
-						inValues = inValues->next;
-					}
-
-				}else{
-				char*nn=(char*)valuesWhere->data;
-					if(strcmp(KEYWORDS1[*(int*)TypesWhere->data],getColumnType(t,index)) != 0 ) {
-						printf("If faut assinger un %s à %s\n",getColumnType(t,index),n );
-						//return;
-					}
-					switch(*(int*)TypesWhere->data){
-						case INT_TOKEN: 
-							value = atoi(nn);
-							if(strcmp((char*) opsWhere->data,"<") == 0){
-								ops = OPS_INF;
-							}else if(strcmp((char*) opsWhere->data,">") == 0){
-								ops = OPS_SUP;
-							}else if(strcmp((char*) opsWhere->data,"<=") == 0){
-								ops = OPS_INFE;
-							}else if(strcmp((char*) opsWhere->data,">=") == 0){
-								ops = OPS_SUPE;
-							}else if(strcmp((char*) opsWhere->data,"=") == 0){
-								ops = OPS_EQ;
-							}else if(strcmp((char*) opsWhere->data,"!=") == 0){
-								ops = OPS_DIFF;
-							}
-							filterNumbers(dataTable,t,ops,value,index);
-						break;
-						case STRING_TOKEN: 
-								filterString(dataTable,t,nn,index);
-						break;
-						default:break;
-					}
+			if(selectWhere(dataTable,t) != -1){
+				if(limit > 0 ) limitData(dataTable->rowData,limit);
+				if(orderBy != -1) {
+					int order;
+					if(orderBy == ASC_TOKEN) order = ORDER_BY_ASC;else order = ORDER_BY_DESC;
+					SortRows(dataTable->rowData,getColumnIndex(current_keyspace,table_name,column_name1),order);
 				}
-				indexesWhere = indexesWhere->next;
-				valuesWhere = valuesWhere->next;
-				TypesWhere = TypesWhere->next;
-				opsWhere = opsWhere->next;
-			}
-			if(limit > 0 ) limitData(dataTable->rowData,limit);
-			if(orderBy != -1) {
-				int order;
-				if(orderBy == ASC_TOKEN) order = ORDER_BY_ASC;else order = ORDER_BY_DESC;
-				SortRows(dataTable->rowData,getColumnIndex(current_keyspace,table_name,column_name1),order);
-			}
-			if(count_flag == true){
-				if(asNames != NULL) 
-					printf("%s\n----------------------------\n  %d\n",(char*)asNames->data,getLinkedListSize(dataTable->rowData) );
-				else 					
-					printf("COUNT(*)\n----------------------------\n  %d\n",getLinkedListSize(dataTable->rowData));
-				return;
-			}
-			showSelectResult(current_keyspace,table_name,in,asNames,dataTable);
+				if(count_flag == true){
+					if(asNames != NULL){
+						char * result = malloc(256); 
+						sprintf(result,"%s\n==========================================\n  %d\n",(char*)asNames->data,getLinkedListSize(dataTable->rowData)  );
+						pushResult(result,sizeofString(result)+1);
+						//printf("%s\n----------------------------\n  %d\n",(char*)asNames->data,getLinkedListSize(dataTable->rowData) );
+					} 
+					else{
+						char * result = malloc(256); 
+						sprintf(result,"COUNT(*)\n==========================================\n  %d\n",getLinkedListSize(dataTable->rowData));
+						pushResult(result,sizeofString(result)+1);
+						//printf("COUNT(*)\n----------------------------\n  %d\n",getLinkedListSize(dataTable->rowData));
+					} 					
+					return;
+				}
+			}else error = true;
+			if(error == false) showSelectResult(current_keyspace,table_name,in,asNames,dataTable);
 		}
-	}else printf("%s n'existe pas dans la liste des tables\n",table_name);
+	}else {
+		char * result = malloc(256); 
+		sprintf(result,"%s n'existe pas dans la liste des tables\n",table_name);
+		pushResult(result,sizeofString(result)+1);
+		//printf("%s n'existe pas dans la liste des tables\n",table_name);
+	}
 }
 //----------------------------------------------------
 void batch_interpreter(){}
@@ -550,7 +582,141 @@ void batch_interpreter(){}
 void using_interpreter(){}
 //----------------------------------------------------
 
+void interpret_createUser(){
+	int res = createUser(row);
+	char * result = malloc(256); 
+	sprintf(result,"%s\n",results[res]);
+	pushResult(result,sizeofString(result)+1);
+}
 
+void interpret_alterUser(){
+	int res = alterUser(row);
+	char * result = malloc(256); 
+	sprintf(result,"%s\n",results[res]);
+	pushResult(result,sizeofString(result)+1);}
+
+void interpret_dropUser(){
+	int res =dropUser(userName);
+	char * result = malloc(256); 
+	sprintf(result,"%s\n",results[res]);
+	pushResult(result,sizeofString(result)+1);}
+
+void list_interpreter(){
+	node * users = getUsers();
+	printf(" USERS \n");
+	printf("-------\n");
+	char * result = malloc(256); 
+	sprintf(result,"%s","USERS\n################\n");
+	pushResult(result,sizeofString(result)+1);
+	while(users!=NULL){
+		char * result = malloc(256); 
+		sprintf(result,"%s\n",(char*)users->data );
+		pushResult(result,sizeofString(result)+1);
+		users = users->next->next;
+	}
+}
+
+//---------------------------------------------------
+int selectWhere(tableData * dataTable,TableConfig *t){
+	tableData * dataTableAnd;
+	int i;
+	while(indexesWhere != NULL){
+		char*op=(char*)opsWhere->data;
+		char*n=(char*)indexesWhere->data;
+		int index = getColumnIndex(current_keyspace,table_name,n);
+		if(index < 0) {
+			char * result = malloc(256); 
+			sprintf(result,"%s n'existe pas dans la liste des columns\n",n);
+			pushResult(result,sizeofString(result)+1);
+			printf("%s n'existe pas dans la liste des columns\n",n);
+			indexesWhere = indexesWhere->next;
+			return -1;
+		}
+		int value;
+		int ops;
+		float fvalue;
+		if(strcasecmp(op,"in") == 0){
+			i=0;
+			while ( inValues != NULL )
+			{
+				printf("TYPES IN WHERE : %s %s \n",KEYWORDS1[*(int*)TypesWhere->data],getColumnType(t,index) );
+				if(strcmp(KEYWORDS1[*(int*)inTypes->data],getColumnType(t,index)) != 0 ) {
+					char * result = malloc(256); 
+					sprintf(result,"If faut assinger un %s à %s\n",getColumnType(t,index),n );
+					pushResult(result,sizeofString(result)+1);
+					return -1;
+				}
+				if(i == 0){
+					filterString(dataTable,t,inValues->data,index);
+				} else {
+					dataTableAnd = readTableData(current_keyspace,table_name); 
+					filterString(dataTableAnd,t,inValues->data,index);
+					if(dataTable->rowData == NULL) 
+						dataTable->rowData = dataTableAnd->rowData;
+					else if(dataTableAnd->rowData != NULL)
+						concatRows(dataTable->rowData,dataTableAnd->rowData,t);
+				}
+				i++;
+				inTypes = inTypes->next;
+				inValues = inValues->next;
+			}
+		}else{
+			char*nn=(char*)valuesWhere->data;
+			printf("TYPES IN WHERE : %s(%s) %s \n",KEYWORDS1[*(int*)TypesWhere->data],nn,getColumnType(t,index) );
+			if(strcmp(KEYWORDS1[*(int*)TypesWhere->data],getColumnType(t,index)) != 0 ) {
+				char * result = malloc(256); 
+				sprintf(result,"If faut assinger un %s à %s\n",getColumnType(t,index),n );
+				pushResult(result,sizeofString(result)+1);
+				return -1;
+			}
+			switch(*(int*)TypesWhere->data){
+				case INT_TOKEN: 
+					value = atoi(nn);
+					if(strcmp((char*) opsWhere->data,"<") == 0){
+						ops = OPS_INF;
+					}else if(strcmp((char*) opsWhere->data,">") == 0){
+						ops = OPS_SUP;
+					}else if(strcmp((char*) opsWhere->data,"<=") == 0){
+						ops = OPS_INFE;
+					}else if(strcmp((char*) opsWhere->data,">=") == 0){
+						ops = OPS_SUPE;
+					}else if(strcmp((char*) opsWhere->data,"=") == 0){
+						ops = OPS_EQ;
+					}else if(strcmp((char*) opsWhere->data,"<>") == 0){
+						ops = OPS_DIFF;
+					}
+					filterNumbers(dataTable,t,ops,value,index);
+				break;
+				case FLOAT_TOKEN: 
+					fvalue = atof(nn);
+					if(strcmp((char*) opsWhere->data,"<") == 0){
+						ops = OPS_INF;
+					}else if(strcmp((char*) opsWhere->data,">") == 0){
+						ops = OPS_SUP;
+					}else if(strcmp((char*) opsWhere->data,"<=") == 0){
+						ops = OPS_INFE;
+					}else if(strcmp((char*) opsWhere->data,">=") == 0){
+						ops = OPS_SUPE;
+					}else if(strcmp((char*) opsWhere->data,"=") == 0){
+						ops = OPS_EQ;
+					}else if(strcmp((char*) opsWhere->data,"<>") == 0){
+						ops = OPS_DIFF;
+					}
+					filterFloats(dataTable,t,ops,fvalue,index);
+				break;
+				case STRING_TOKEN: 
+						filterString(dataTable,t,nn,index);
+				break;
+				default:break;
+			}
+		}
+		indexesWhere = indexesWhere->next;
+		valuesWhere = valuesWhere->next;
+		TypesWhere = TypesWhere->next;
+		opsWhere = opsWhere->next;
+	}
+	return 1;
+}
 
 void adapt_row(){
 	TableConfig *t = readTableConfig(current_keyspace,table_name);
