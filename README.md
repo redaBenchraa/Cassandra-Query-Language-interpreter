@@ -1,1 +1,1 @@
-CQL_PROJECT
+Cql interpreter in C language.

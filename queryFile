@@ -1,1 +1,1 @@
-select * from salarier order by sal desc limit 3;
+select * from emp;

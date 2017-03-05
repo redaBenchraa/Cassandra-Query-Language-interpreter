@@ -2,8 +2,16 @@
 #include <string.h>
 #include <stdlib.h>
 #include "resultHandler.h"
+
+//This files is required for storing and sending results to the client
+
+//Results linked list
 resultNode *resultList;
+
+// Socket description
 int dsc;
+
+// Add a string to the results list
 void pushResult(char* new_data,int data_size){
 	resultNode *last = (struct resultNode*)malloc(sizeof(struct resultNode));
     last->data = malloc(data_size);
@@ -19,6 +27,8 @@ void pushResult(char* new_data,int data_size){
         temp->next = last;
     };
 }
+
+// Send the result via socket to the client
 void sendResult(){
     while(resultList != NULL){
         send(dsc,resultList->data,500,0);

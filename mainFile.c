@@ -8,7 +8,11 @@
 #include <jansson.h>
 #include <stdarg.h>
 #include "parser.h"
-#include "interpreter.h"
+#include "interpreter.h"*
+
+
+//CQL interpreter without sockets
+
 void getQuery(char *buf)
 {
 	int c;

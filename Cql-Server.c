@@ -15,16 +15,26 @@
 #include "interpreter.h"
 #include "resultHandler.h"
 
+
+#ifdef _WIN32
+#define DELCMD"del -/S "
+#endif
+
+#ifdef linux
+#define DELCMD "rm -rf "
+#endif
+
+
 #define MAX_RECV_BUF 256
 #define MAX_SEND_BUF 256
 int main(){
 
     // Setting addr and port for socket server 
-    int PORT = 1111;
-    char* ADDR = "127.0.0.1";
-    printf("Enter your IP : \n");
+    int PORT;
+    char *ADDR = malloc(12);
+    printf("Enter your IP : ");
     scanf("%s",ADDR);
-    printf("Enter your port : \n");
+    printf("Enter your port :");
     scanf("%d",&PORT);
     
     //Variables
@@ -50,8 +60,8 @@ int main(){
 	if(bind(dss,(struct sockaddr*) &addserv,sizeof(struct sockaddr)) != -1){
         //Listen
 		if(listen(dss,10) !=-1){
+            printf("Server is active\n===============================\n");
 			while(1){
-
                 //Accept new clients
                 dsc = accept(dss,(struct sockaddr *) &addClt, (socklen_t *) &lgAdeClt);
                 printf("\n== New Client ==\n");
@@ -110,6 +120,8 @@ void ExecuteFile(char*fn,int sock){
     if( tokenList != NULL) tokenList = NULL;
 }
 
+
+// return -1 in case of error of disconnect 
 int recv_file(int sock, char* file_name)
 {
     int  sizeOfFILE;
@@ -126,10 +138,11 @@ int recv_file(int sock, char* file_name)
     if(sizeOfFILE == 0){
         return -1;
     }
-    //printf("SIZE IS %d\n",sizeOfFILE);
     sprintf(send_str, "%s\n", file_name); 
     send_strlen = strlen(send_str);
-    system("rm -rf queryFile");
+    char * del = malloc(30);
+    sprintf(del, "%s queryFile", DELCMD); 
+    system(del);
     if ( (f = open(file_name,O_WRONLY|O_CREAT, 0644)) < 0 )
     {
         perror("error creating file");
@@ -154,6 +167,5 @@ int recv_file(int sock, char* file_name)
         }
     }
     close(f);
-    //printf("Client Received: %d bytes in %d recv(s)\n", rcvd_file_size,recv_count);
     return rcvd_file_size;
 }
