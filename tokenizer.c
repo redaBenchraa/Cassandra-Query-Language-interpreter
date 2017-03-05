@@ -1,6 +1,6 @@
 
 
-// Token definitions
+// définitions des tokens
 #include "tokens.h"
 
 int isHex(char c);
@@ -14,22 +14,35 @@ void readToken();
 void addToken(Token * token);
 
 
+//ficher à lire
 FILE * file;
+
+// le caractère courant
 char currentChar;
+
+// la liste chainée des token
 Token * tokens;
+
+// dernier token
 Token * lastToken;
+
 int charCounter;
 
 int col = -1;
 int row = 0;
 
+
+//les drapeaux des commentaires pour sauter les caractères jusqu'à la fin du commentaire
 int commentFlag = 0;
 int commentCol;
 int commentRow;
 
 
+// avancer la tête de lecture de caractère
 void readChar(){
 	currentChar = fgetc(file);
+
+	// avancer le compteur des colonnes et des lignes
 	if(currentChar == '\n'){
 		row++;
 		col = -1;
@@ -38,6 +51,8 @@ void readChar(){
 	}
 }
 
+
+// continuer la lecture d'un nombre
 void readNumber(int negative){
 
 	charCounter = 0;
@@ -48,11 +63,14 @@ void readNumber(int negative){
 	token->col = col;
 	token->row = row;
 
+	// si la constante débute par le signe moins
 	if(negative == 1){
 		token->value[charCounter] = '-';
 		charCounter++;
 	}
 
+
+	// traiter les differents câs: ecriture avec virgule, ou exponentielle ou hexadecimale
 	int hasDot = 0, hasE = 0, hasDigitAfterE = 0;
 	int isBlob = 0;
 	if(currentChar == '0' && negative == 0){
@@ -66,8 +84,9 @@ void readNumber(int negative){
 		}
 	}
 
+	// si la constante est un objet binaire
 	if(isBlob){
-		//possibly exceeding MAX_WORD_LENGTH... Solution is needed
+
 		while(isHex(currentChar) == 1 && charCounter < MAX_WORD_LEN){
 			token->value[charCounter] = currentChar;
 			charCounter++;
@@ -81,7 +100,7 @@ void readNumber(int negative){
 		}
 
 	} else {
-		// eat digits
+		// consommer un digit (traitant tous les caractères prévues)
 		while(isdigit(currentChar) || (currentChar == '.' && hasDot == 0 && hasE == 0) || (currentChar == 'E' && hasE == 0)
 				|| ((currentChar == '+' || currentChar == '-') && hasE == 1 && hasDigitAfterE == 0)){
 			if(currentChar == '.') hasDot = 1;
@@ -92,16 +111,18 @@ void readNumber(int negative){
 			readChar();
 		}
 
+		// si la constante est blob elle va contenir des '-' et des hexadecimaux
 		if(isHex(currentChar) == 1 || currentChar == '-'){
 
+			// lire le Blob
 			while((isHex(currentChar) == 1 || currentChar == '-' ) && charCounter < 34){
 				token->value[charCounter] = currentChar;
 				charCounter++;
 				readChar();
 			}
-			//check length
+			// verifie la longueur du blob
 			if(charCounter == 34){
-				//check hyphens
+				// vérifier les traits d'union
 				if(token->value[6] == '-' && token->value[11] == '-' && token->value[16] == '-' && token->value[21] == '-'){
 					token->code = UUID_TOKEN;
 				}
@@ -111,7 +132,7 @@ void readNumber(int negative){
 			}
 
 		} else {
-			// verify end of literal
+			// vérifier la fin de la constante
 			if(hasE == 1 && hasDigitAfterE == 0){
 				token->code = ERROR_TOKEN;
 			} else if(isalpha(currentChar) || currentChar == '_'){
@@ -122,6 +143,7 @@ void readNumber(int negative){
 					readChar();
 				}
 			} else {
+				// associer le type du nombre
 				if(hasDot == 1 || hasE == 1)
 					token->code = FLOAT_TOKEN;
 				else
@@ -131,19 +153,24 @@ void readNumber(int negative){
 
 	}
 
-	//add token
+	//ajouter token
 	addToken(token);
 
 }
 
+
+// vérifier si le caractère represente un chiffre hexadecimal
 int isHex(char c){
 	return (c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' || c == '6' || c == '7' || c == '8' || c == '9'
 			|| c == 'a' || c == 'b' || c == 'c' || c == 'd' || c == 'e' || c == 'f'
 			|| c == 'A' || c == 'B' || c == 'C' || c == 'D' || c == 'E' || c == 'F');
 }
 
+
+// lire un identifiant
 void readIDF(){
 
+	// drapeau pour distinguer "idf" et idf
 	int quotedMode = (currentChar == '"' ? 1 : 0);
 
 	charCounter = 0;
@@ -154,7 +181,7 @@ void readIDF(){
 	token->col = col;
 	token->row = row;
 
-	//NOTE: string might easily exceed maxLength... Solution is yet to be discussed.
+	// si on a des guillemets
 	if(quotedMode == 1){
 		readChar();
 		int endOfString = 0;
@@ -180,9 +207,9 @@ void readIDF(){
 		}
 		if(endOfString == 1) token->code = IDENTIFIER_TOKEN;
 		else token->code = ERROR_TOKEN;
-		//NOTE: maybe add a token called QUOTED_IDF_TOKEN, since quoted idf are case sensitive
+		
 	} else {
-		//not quoted
+		// sans guillemets
 		token->value[charCounter] = currentChar;
 		charCounter++;
 		readChar();
@@ -198,7 +225,7 @@ void readIDF(){
 		}
 
 		if(currentChar == '-'){
-			//check for hex
+			// verifier s'il continet hex
 			if(isHex(token->value[0]) == 1 && isHex(token->value[1]) == 1 && isHex(token->value[2]) == 1
 					&& isHex(token->value[3]) == 1 && isHex(token->value[4]) == 1 && isHex(token->value[5]) == 1){
 
@@ -209,9 +236,9 @@ void readIDF(){
 						charCounter++;
 						readChar();
 					}
-					//check length
+					//verifier la longueur
 					if(charCounter == 34){
-						//check hyphens
+						//verifier les traits d'union
 						if(token->value[6] == '-' && token->value[11] == '-' && token->value[16] == '-' && token->value[21] == '-'){
 							token->code = UUID_TOKEN;
 						}
@@ -225,7 +252,7 @@ void readIDF(){
 			}
 
 		} else {
-			//check for keywords
+			//vérifier les mots clé
 			token->code = IDENTIFIER_TOKEN;
 			if(hasDigit == 0){
 				for(int i = 0; i < sizeof(KEYWORDS)/sizeof(KEYWORDS[0]); i++){
@@ -235,6 +262,7 @@ void readIDF(){
 					}
 				}
 			}
+			// NaN et Infinity se sont des constantes
 			if(strcasecmp("NaN", token->value) == 0 || strcasecmp("Infinity", token->value) == 0){
 				token->code = FLOAT_TOKEN;
 			}
@@ -244,12 +272,13 @@ void readIDF(){
 	}
 
 
-	//add token
+	//ajouter token
 	addToken(token);
 }
 
+
+// lire une chaine de caractère
 void readString(){
-//Should this function eliminate '\n' ?
 
 	charCounter = 0;
 
@@ -259,8 +288,7 @@ void readString(){
 	token->col = col;
 	token->row = row;
 
-	//NOTE: string might easily exceed maxLength... Solution is yet to be discussed.
-	readChar(); // to eliminate the first '
+	readChar(); //eliminer le premier "
 	int endOfString = 0;
 	while(endOfString != 1 && currentChar != EOF){
 		if(currentChar != '\''){
@@ -284,11 +312,11 @@ void readString(){
 	}
 	if(endOfString == 1) token->code = STRING_TOKEN;
 	else token->code = ERROR_TOKEN;
-	//add token
+	//ajouter token
 	addToken(token);
 }
 
-
+// lire un symbole d'operateur (+,-,* ...)
 void readOp(){
 
 	charCounter = 0;
@@ -302,6 +330,7 @@ void readOp(){
 	int finished = 0;
 	token->code = -1;
 
+	// lire les caractères jusqu'à arriver à une chaine qui ne figure pas dans la liste des opérateurs
 	while(!finished && charCounter < MAX_WORD_LEN){
 
 		int found = 0;
@@ -335,7 +364,7 @@ void readOp(){
 	}
 
 
-	//handling detection of comments
+	//traiter les commentaires
 	if(token->code == SINGLELINE_COMMENT_TOKEN || token->code == OTHER_SINGLELINE_COMMENT_TOKEN){
 		while(currentChar != '\n' && currentChar != EOF){
 			readChar();
@@ -361,12 +390,12 @@ void readOp(){
 			free(token);
 			readNumber(1);
 		} else {
-			//add token
+			//ajouter token
 			addToken(token);
 		}
 
 	}
-	// free token, because it didn't get added to the list.
+	// déallouer le token car il n'était pas ajouté à la liste des token
 	if(commentFlag){
 		free(token);
 	}
@@ -374,6 +403,8 @@ void readOp(){
 
 }
 
+
+// lire un separateur (whitespace)
 int isSeperator(){
 	for(int i = 0; i < sizeof(SEPARATORS)/sizeof(SEPARATORS[0]); i++){
 		if(currentChar == SEPARATORS[i]) return 1;
@@ -381,20 +412,22 @@ int isSeperator(){
 	return 0;
 }
 
+
+// lire un token
 void readToken(){
 
-    // Comment handling: only read operators to check for multiline comment end
+    // gestion des commentaires (une ligne et multiple lignes)
 	if(commentFlag){
 
 		while(commentFlag == 1){
 			while((isalnum(currentChar) || isSeperator()) && currentChar != EOF){
-				// while not operator
+				// tant que ce n'est pas un séparateur
 				readChar();
 			}
 			if(currentChar != EOF){
 				readOp();
 			} else {
-				// file ended with open comment
+				// fin de fichier avec un commentaire non términé
 				Token * token = (Token *) malloc(sizeof(Token));
 				memset(token, 0, sizeof(Token));
 				strcpy(token->value,KEYWORDS[START_MULTILINE_COMMENT_TOKEN]);
@@ -409,7 +442,7 @@ void readToken(){
 
 	} else {
 
-		// divide the work to 4 sections : word (keywords + idf), literal, operator (& error), separator
+		// diviser le travail sur 4 sections
 		if(isalpha(currentChar) || currentChar == '_' || currentChar == '"'){
 			//identifier or keyword
 			readIDF();
@@ -420,10 +453,10 @@ void readToken(){
 			//strings
 			readString();
 		} else if(isSeperator()) {
-			//to be ignored
+			//whitespace
 			readChar();
 		} else {
-			//Operators
+			//Operateurs
 			readOp();
 		}
 
@@ -431,6 +464,7 @@ void readToken(){
 
 }
 
+// extracter la liste des token depuis un fichier
 Token * tokenize(char * filePath){
 	FILE *f = NULL;  
 	if(filePath == NULL) return NULL;
@@ -460,7 +494,7 @@ Token * tokenize(char * filePath){
 	return tokens;
 }
 
-
+// afficher les tokens
 void printTokens(){
 	Token * token = tokens;
 	while(token != NULL){
@@ -469,11 +503,12 @@ void printTokens(){
 	}
 }
 
+// afficher un seul token
 void printToken(Token * token){
 	printf("Token Value: %s\nCode: \"%s\" (%d)\nCol: %d\tRow: %d\n\n",token->value, KEYWORDS[token->code], token->code, token->col, token->row);
 }
 
-//adds token to tokens list
+//ajouter un token à la liste
 void addToken(Token * token){
 	token->next = NULL;
 	if(tokens == NULL){
@@ -486,7 +521,7 @@ void addToken(Token * token){
 }
 
 
-// deallocates all the tokens
+// déallouer un token
 void freeTokens(){
 	Token * temp;
 	while(tokens != NULL){

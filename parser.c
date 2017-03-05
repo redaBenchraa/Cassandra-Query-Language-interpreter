@@ -45,6 +45,8 @@ bool in_flag = true;
 char lastOp[5];
 char *userName;
 char* describe_keyspace;
+
+//charger un token dans currentToken
 void getToken(){
     if(tokenList != NULL){
         memcpy(&last_token,&current_token,sizeof(Token));
@@ -52,6 +54,7 @@ void getToken(){
         tokenList = tokenList->next;
     }
 }
+// trouver une colonnes
 int search_column(char* colName){
         node * columns = columnNames;
         while ( columns!= NULL){
@@ -62,8 +65,8 @@ int search_column(char* colName){
         }
         return COLUMN_NOT_FOUND;
 }
-
-void print_error_token(int code)
+// afficher erreur
+void print_error(int code)
 {
     if( ready_for_execution == true ){
         char * result = malloc(256); 
@@ -84,17 +87,17 @@ void parse()
 {
     getToken();
     _program();
-    if(current_token.code == END_TOKEN && no_error == true)
-    {
-        //printf("\nLe programme a parsé les requetes avec success\n");
-    }
-    else
+    if(!(current_token.code == END_TOKEN && no_error == true))
     {
         char*result = malloc(250);
         sprintf(result,"%s","\nErreur en parsing\n");
-        pushResult(result,sizeofString(result)+1);
+        pushResult(result,sizeofString(result)+1);    
     }
 }
+
+
+// traiter les non terminals
+// Chaque fonction fait la dérivation du non terminal approprié
 
 void _program()
 {
@@ -142,14 +145,11 @@ void _program()
         case DELETE_TOKEN   : _delete_statement();  break;
         case DESCRIBE_TOKEN   : _describe_statement();  break;
         case LIST_TOKEN     : _list_statement();    break;
-        //REVOKE_TOKEN   : _revoke_statement();  break;
-        //case GRANT_TOKEN    : _grant_statement();   break;
-        default             :  print_error_token(current_token.code);
+        default             :  print_error(current_token.code);
         }
         _test_symbol(PV_TOKEN);
         if(ready_for_execution == true) 
             interpret();
-        //reset_states();
         sendResult();
 
     }
@@ -164,7 +164,7 @@ void _describe_statement()
     {
     case KEYSPACE_TOKEN     : getToken(); _describe_keyspace_statement();         break;
     case TABLE_TOKEN        : getToken(); _describe_table_statement();            break;
-    default : print_error_token(current_token.code); getToken();
+    default : print_error(current_token.code); getToken();
     }
 }
 
@@ -193,25 +193,7 @@ void _create_statement()
     case TYPE_TOKEN         : getToken(); _create_type_statement();             break;
     case USER_TOKEN         : getToken(); _create_user_statement();             break;
     case CUSTOM_TOKEN       : getToken();_test_symbol(INDEX_TOKEN); _create_index_statement(); break;
-    //case MATERIALIZED_TOKEN : getToken(); _create_materialized_statement();     break;
-    //case ROLE_TOKEN         : getToken(); _create_role_statement();             break;
-    //case TRIGGER_TOKEN      : getToken(); _create_trigger_statement();          break;
-    //case FUNCTION_TOKEN     : getToken(); _create_function_statement();         break;
-    //case AGGREGATE_TOKEN    : getToken(); _create_aggregate_statement();        break;
-
-    /*case OR_TOKEN           :
-        getToken();
-        _test_symbol(REPLACE_TOKEN);
-        switch(current_token.code)
-        {
-        case FUNCTION_TOKEN  : getToken(); _create_function_statement();  break;
-        case AGGREGATE_TOKEN : getToken(); _create_aggregate_statement(); break;
-        default              : print_error_token(current_token.code); getToken();
-        }
-        break;
-    */
-
-    default : print_error_token(current_token.code); getToken();
+    default : print_error(current_token.code); getToken();
     }
 }
 
@@ -225,8 +207,7 @@ void _alter_statement()
     case TABLE_TOKEN     :  getToken();      _alter_table_statement();       break;
     case TYPE_TOKEN      :  getToken();      _alter_type_statement();        break;
     case USER_TOKEN      :  getToken();      _alter_user_statement();        break;
-    //case ROLE_TOKEN      :  getToken();      _alter_role_statement();        break;
-    default:    print_error_token(current_token.code);  getToken();          break;
+    default:    print_error(current_token.code);  getToken();          break;
     }
 }
 
@@ -240,12 +221,7 @@ void _drop_statement()
     case INDEX_TOKEN     :  getToken();      _drop_index_statement();         break;
     case TYPE_TOKEN      :  getToken();      _drop_type_statement();          break;
     case USER_TOKEN      :  getToken();      _drop_user_statement();          break;
-    //case ROLE_TOKEN      :  getToken();      _drop_role_statement();          break;
-    ///case FUNCTION_TOKEN  :  getToken();      _drop_function_statement();      break;
-    //case AGGREGATE_TOKEN :  getToken();      _drop_aggregate_statement();     break;
-    //case TRIGGER_TOKEN   :  getToken();      _drop_trigger_statement();       break;
-    //case MATERIALIZED_TOKEN:getToken();      _drop_materialized_statement();  break;
-    default:  print_error_token(current_token.code); break;
+    default:  print_error(current_token.code); break;
     }
 }
 
@@ -401,8 +377,6 @@ void _select_statement() {
     case ORDER_TOKEN: getToken(); _test_symbol(BY_TOKEN); _order_by_clause(); break;
     case LIMIT_TOKEN: getToken(); _option_type(); break;
     case ALLOW_TOKEN: _test_symbol(FILTERING_TOKEN); break;
-    //case PER_TOKEN  : _test_symbol(PARTITION_TOKEN); _test_symbol(LIMIT_TOKEN); _option_type(); break;
-    //case GROUP_TOKEN: _test_symbol(BY_TOKEN); _group_by_clause(); break;
     }
 }
 
@@ -480,7 +454,7 @@ void _update_statement(void){
 void _test_symbol(int code)
 {
     if(current_token.code == code  || (code == IDENTIFIER_TOKEN  &&  current_token.code >= 62 ) );
-    else  print_error_token(current_token.code);
+    else  print_error(current_token.code);
     getToken();
 }
 
@@ -492,7 +466,7 @@ void isTableName()
         strcpy(table_name,current_token.value);
     }
     else{
-        print_error_token(current_token.code);
+        print_error(current_token.code);
     }
     getToken();
 }
@@ -544,7 +518,7 @@ void _alter_table_instruction()
             _options();
             break;
 
-        default:  print_error_token(current_token.code); break;
+        default:  print_error(current_token.code); break;
     }
 }
 
@@ -576,11 +550,9 @@ void _alter_type_modification()
                 _test_symbol(IDENTIFIER_TOKEN);
             }
             break;
-        default: print_error_token(current_token.code); break;
+        default: print_error(current_token.code); break;
     }
 }
-
-
 
 void _if_exist()
 {
@@ -630,7 +602,7 @@ void _cql_type()
     }
     else if(current_token.code==IDENTIFIER_TOKEN) {
         no_error = false;
-        print_error_token(current_token.code);
+        print_error(current_token.code);
         getToken();
         if(current_token.code==P_TOKEN){
             getToken();
@@ -642,7 +614,7 @@ void _cql_type()
         getToken();
     }
     else {
-        print_error_token(current_token.code);
+        print_error(current_token.code);
         getToken();
     }
 }
@@ -666,7 +638,7 @@ void _column_defenition()
             pkCount++;
             getToken();
         }
-        else print_error_token(current_token.code);
+        else print_error(current_token.code);
     }
 
     int result = search_column(col_name);
@@ -695,7 +667,7 @@ void _primary_key_ox_para()
             _primary_key_def();
             _test_symbol(PF_TOKEN);
         }
-        else print_error_token(current_token.code);
+        else print_error(current_token.code);
     }
 
 }
@@ -756,7 +728,7 @@ void _partition_key()
         }
         _test_symbol(PF_TOKEN);
         break;
-    default : print_error_token(current_token.code);
+    default : print_error(current_token.code);
     }
 }
 
@@ -813,7 +785,7 @@ void _table_options()
         _table_options_ox();
         break;
     case IDENTIFIER_TOKEN   : _options(); break;
-    default : print_error_token(current_token.code);
+    default : print_error(current_token.code);
     }
 }
 
@@ -842,7 +814,7 @@ void _asc_desc()
     {
     case ASC_TOKEN  : getToken(); break;
     case DESC_TOKEN : getToken(); break;
-    default : print_error_token(current_token.code); getToken();
+    default : print_error(current_token.code); getToken();
     }
 }
 
@@ -862,7 +834,7 @@ void _index_identifier()
         _test_symbol(PF_TOKEN);
     }
     else{
-        //print_error_token(current_token.code);
+        print_error(current_token.code);
     }
 }
 
@@ -913,8 +885,7 @@ void _constant()
     case BOOLEAN_TOKEN      : getToken(); break;
     case UUID_TOKEN         : getToken(); break;
     case BLOB_TOKEN         : getToken(); break;
-    //case NULL_TOKEN         : getToken(); break;
-    default                 : print_error_token(current_token.code);
+    default                 : print_error(current_token.code);
     }
 }
 
@@ -1066,7 +1037,7 @@ void _aux_1_1()
         }
     }
     else {
-        //print_error_token(current_token.code);
+        print_error(current_token.code);
         getToken();
     }
 }
@@ -1090,7 +1061,7 @@ void _aux_1_2()
         _aux_4();
         _test_symbol(PF_TOKEN);
         break;
-    default : ;//print_error_token(current_token.code);
+    default : print_error(current_token.code);
 
     }
 }
@@ -1142,7 +1113,7 @@ void _insert_statement_aux(void){
         getToken();
         _tuple_literal();
     }
-    else ;//print_error_token(current_token.code);
+    else print_error(current_token.code);
 }
 
 void _option_default(void){
@@ -1150,14 +1121,14 @@ void _option_default(void){
         getToken();
         _default_aux();
     }
-    else ;//getToken();
+    else getToken();
 }
 
 void _default_aux(void){
     if(current_token.code==UNSET_TOKEN){
         getToken();
     }
-    else ;//print_error_token(current_token.code); getToken();
+    else print_error(current_token.code);
 }
 
 void _option_selection(void){
@@ -1305,8 +1276,6 @@ void _where_clause(void){
     case ORDER_TOKEN: getToken(); _test_symbol(BY_TOKEN); _order_by_clause(); break;
     case LIMIT_TOKEN: getToken(); _option_type(); break;
     case ALLOW_TOKEN: getToken(); _test_symbol(FILTERING_TOKEN); break;
-    //case PER_TOKEN  : getToken(); _test_symbol(PARTITION_TOKEN); _test_symbol(LIMIT_TOKEN); _option_type(); break;
-    //case GROUP_TOKEN: getToken(); _test_symbol(BY_TOKEN); _group_by_clause(); break;
     }
 }
 
@@ -1321,16 +1290,9 @@ void _order_by_clause(void){
         getToken();
     }else  orderBy = ASC_TOKEN;
     
-    /*while(current_token.code==VIR_TOKEN){
-        _test_symbol(IDENTIFIER_TOKEN);
-        if(current_token.code==ASC_TOKEN || current_token.code==DESC_TOKEN);
-        else;
-        getToken();
-    }*/
     switch(current_token.code){
     case LIMIT_TOKEN: getToken(); _option_type(); break;
     case ALLOW_TOKEN: _test_symbol(FILTERING_TOKEN); break;
-    //case PER_TOKEN  : getToken();_test_symbol(PARTITION_TOKEN); _test_symbol(LIMIT_TOKEN); _option_type(); break;
     }
 }
 
@@ -1352,7 +1314,7 @@ void _option_type(void){
         }
     }
     else {
-        print_error_token(current_token.code);
+        print_error(current_token.code);
         getToken();
     }
 }
@@ -1388,7 +1350,7 @@ void _relation(void){
 
         _term();
     }
-    else print_error_token(current_token.code);
+    else print_error(current_token.code);
 
 }
 
@@ -1415,7 +1377,7 @@ void _operator(void){
         getToken();
         _test_symbol(KEY_TOKEN);
     }
-    else print_error_token(current_token.code); 
+    else print_error(current_token.code); 
 }
 
 void _option_using(void){
@@ -1441,7 +1403,7 @@ void _update_parametre_aux(void){
     if(current_token.code==TIMESTAMP_TOKEN || current_token.code==TTL_TOKEN){
         getToken();
     }
-    else print_error_token(current_token.code); 
+    else print_error(current_token.code); 
 
 }
 
@@ -1455,7 +1417,7 @@ void _option_type_aux(void){
         getToken();
         _test_symbol(IDENTIFIER_TOKEN);
     }
-    else print_error_token(current_token.code);
+    else print_error(current_token.code);
 
 }
 
@@ -1486,7 +1448,7 @@ void _assignment_aux(void){
         pushToList(&types,&current_token.code,sizeof(int));
         _term();
     }
-    else print_error_token(current_token.code); 
+    else print_error(current_token.code); 
 
 
 }
@@ -1495,7 +1457,7 @@ void _aff_column_name(void){
     if(current_token.code==IDENTIFIER_TOKEN){
         getToken();
         if(current_token.code==PLUS_TOKEN || current_token.code==MOINS_TOKEN);
-        else print_error_token(current_token.code);
+        else print_error(current_token.code);
         getToken();
         _term();
     }
@@ -1510,10 +1472,6 @@ void _aff_column_name(void){
     }
 
     else _term();
-
-
-
-
 }
 
 void _option_list_literal(void){
@@ -1543,7 +1501,7 @@ void _option_if_aux(void){
             _condition();
         }
     }
-    else print_error_token(current_token.code);
+    else print_error(current_token.code);
 }
 
 void _condition(void){
@@ -1611,376 +1569,3 @@ void _list_statement(){
 void _list_users_statement(){
     _test_symbol(USERS_TOKEN);
 }
-
-
-
-// UNUSED GRAMMER.
-//grant options
-
-/*void _permissions(){
-        if(current_token.code==ALL_TOKEN){
-            getToken();
-            if(current_token.code==PERMISSIONS_TOKEN){
-                getToken();
-            }
-            else
-            {getToken();}
-        }
-        else
-            {_permission();
-            if(current_token.code==PERMISSION_TOKEN)
-                getToken();
-
-
-
-        }
-}*/
-
-/*void _ressource(){
-    switch(current_token.code){
-        case ALL_TOKEN       :               getToken(); _all_statement(); break;
-        case KEYSPACE_TOKEN  :               getToken(); _test_symbol(IDENTIFIER_TOKEN);break;
-        case TABLE_TOKEN     :               getToken();
-                                             if(current_token.code==IDENTIFIER_TOKEN || current_token.code==TABLE_FUNCTION_NAME_TOKEN) getToken();
-                                             else{
-                                                    print_error_token(current_token.code);
-                                                    getToken();
-                                                 }
-                                            break;
-
-        case IDENTIFIER_TOKEN :             getToken();break;
-        case TABLE_FUNCTION_NAME_TOKEN :    getToken();break;
-        case ROLE_TOKEN     :               getToken();
-                                            if(current_token.code==IDENTIFIER_TOKEN|| current_token.code==STRING_TOKEN)getToken(); 
-                                            break;
-        case FUNCTION_TOKEN :               getToken();
-                                            _test_symbol(TABLE_FUNCTION_NAME_TOKEN);
-                                            _test_symbol(PO_TOKEN);
-                                            _function_statement();
-                                            _test_symbol(PF_TOKEN); break;
-        case MBEAN_TOKEN    :               _test_symbol(STRING_TOKEN);break;
-
-        case MBEANS_TOKEN   :               _test_symbol(STRING_TOKEN);break;
-        default             :               printf("\nressource_ERROR\n");getToken(); break;
-
-
-}}*/
-/*void _permission(){
-    switch(current_token.code){
-        case CREATE_TOKEN   :getToken();break;
-        case ALTER_TOKEN    :getToken();break;
-        case DROP_TOKEN     :getToken();break;
-        case SELECT_TOKEN   :getToken();break;
-        case MODIFY_TOKEN   :getToken();break;
-        case AUTHORIZE_TOKEN:getToken();break;
-        case DESCRIBE_TOKEN :getToken();break;
-        case EXECUTE_TOKEN  :getToken();break;
-        default             :printf("\npermission_ERROR\n");getToken(); break;
-    }
-}*/
-
-/*void _all_statement(){
-    switch(current_token.code){
-        case KEYSPACES_TOKEN :getToken();break;
-        case ROLES_TOKEN     :getToken();break;
-        case FUNCTIONS_TOKEN :getToken(); _all_functions_statement();break;
-        case MBEANS_TOKEN    :getToken();break;
-        default             :printf("\nall statement_ERROR\n");getToken(); break;
-
-    }
-}*/
-
-/*void _all_functions_statement(){
-    if(current_token.code==IN_TOKEN){
-        getToken();
-        _test_symbol(KEYSPACE_TOKEN);
-        _test_symbol(IDENTIFIER_TOKEN);
-    }
-    else{
-        getToken();
-    }
-}*/
-
-
-/*void _function_statement(){
-
-    if(current_token.code!=PF_TOKEN){
-        _cql_type();
-        while(current_token.code==VIR_TOKEN){
-            getToken();
-            _cql_type();
-        }}
-    else getToken();
-}*/
-
-//list options
-
-/*void _of_role_statement(){
-    if(current_token.code==OF_TOKEN){
-        getToken();
-        if(current_token.code==IDENTIFIER_TOKEN|| current_token.code==STRING_TOKEN){getToken();}
-        else {print_error_token(current_token.code);getToken();}
-
-
-}
-
-}*/
-
-/*void _no_recursive_statement(){
-    if(current_token.code==NORECURSIVE_TOKEN)
-        getToken();
-}*/
-
-/*void _on_ressource_statement(){
-    if(current_token.code==ON_TOKEN){
-        getToken();
-        _ressource();
-}
-
-}*/
-
-
-/*void _of_role_name_statement(){
-    if(current_token.code==OF_TOKEN){
-        getToken();
-        if(current_token.code==IDENTIFIER_TOKEN || current_token.code==STRING_TOKEN)getToken();
-        else {print_error_token(current_token.code);getToken();}
-        _no_recursive_statement();
-    }
-}*/
-/*void _create_materialized_statement()
-{
-  _test_symbol(VIEW_TOKEN);
-  _if_not_exists();
-  _test_symbol(IDENTIFIER_TOKEN);
-  _test_symbol(AS_TOKEN);
-  _select_statement();
-  _test_symbol(PRIMARY_TOKEN);
-  _test_symbol(KEY_TOKEN);
-  _test_symbol(PO_TOKEN);
-  _primary_key_def();
-  _test_symbol(WITH_TOKEN);
-  _table_options();
-}*/
-
-/*void _create_role_statement()
-{
-    _if_not_exists();
-    _test_symbol(IDENTIFIER_TOKEN);
-    if(current_token.code == WITH_TOKEN)
-    {
-         getToken();
-        _role_options();
-    }
-}*/
-
-
-
-/*void _create_trigger_statement()
-{
-
-    _if_not_exists();
-    _test_symbol(IDENTIFIER_TOKEN);
-    _test_symbol(ON_TOKEN);
-    isTableName();
-    _test_symbol(USING_TOKEN);
-    _test_symbol(STRING_TOKEN);
-}*/
-
-/*void _create_function_statement()
-{
-  _if_not_exists();
-  isTableName();
-  _test_symbol(PO_TOKEN);
-  _arg_dec();
-  _test_symbol(PF_TOKEN);
-  if(current_token.code == CALLED_TOKEN)
-      getToken();
-  else if ( current_token.code == RETURNS_TOKEN )
-  {
-      getToken();
-      _test_symbol(NULL_TOKEN);
-  }
-
-  _test_symbol(ON_TOKEN);
-  _test_symbol(NULL_TOKEN);
-  _test_symbol(INPUT_TOKEN);
-  _test_symbol(RETURNS_TOKEN);
-  _cql_type();
-  _test_symbol(LANGUAGE_TOKEN);
-  _test_symbol(IDENTIFIER_TOKEN);
-  _test_symbol(AS_TOKEN);
-  _test_symbol(STRING_TOKEN);
-
-}*/
-
-/*void _create_aggregate_statement() {
-
-}*/
-/*void _alter_role_statement()
-{
-    _test_symbol(IDENTIFIER_TOKEN);
-    _test_symbol(WITH_TOKEN);
-    _role_options();
-
-}
-
-
-/*void _drop_role_statement()
-{
-    _if_exist();
-    _test_symbol(IDENTIFIER_TOKEN);
-}*/
-
-/*void _drop_materialized_statement()
-{
-    _test_symbol(VIEW_TOKEN);
-    _if_exist();
-    _test_symbol(IDENTIFIER_TOKEN);
-}*/
-
-
-/*void _drop_function_statement()
-{
-    _if_exist();
-    isTableName();
-    _arg_sin();
-}*/
-
-/*void _drop_aggregate_statement()
-{
-    _drop_function_statement();
-}*/
-
-/*void _drop_trigger_statement()
-{
-    _if_exist();
-    isTableName();
-    _test_symbol(ON_TOKEN);
-    isTableName();
-}*/
-/*void _grant_statement(){
-    _test_symbol(GRANT_TOKEN);
-    if(current_token.code==IDENTIFIER_TOKEN || current_token.code==STRING_TOKEN)
-        _grant_role_statement();
-    else _grant_permission_statement();
-}*/
-
-/*void _grant_role_statement(){
-
-    if(current_token.code==IDENTIFIER_TOKEN || current_token.code==STRING_TOKEN) getToken();
-       else {print_error_token(current_token.code);getToken();}
-
-       _test_symbol(TO_TOKEN);
-
-       if(current_token.code==IDENTIFIER_TOKEN || current_token.code==STRING_TOKEN)getToken();
-       else {print_error_token(current_token.code);getToken();}
-}*/
-
-/*void _grant_permission_statement(){
-    _permissions();
-    _test_symbol(ON_TOKEN);
-    _ressource();
-    _test_symbol(TO_TOKEN);
-
-    if(current_token.code==IDENTIFIER_TOKEN || current_token.code==STRING_TOKEN);
-    else print_error_token(current_token.code);
-    getToken();
-
-}*/
-
-/*void _revoke_statement(){
-    _test_symbol(REVOKE_TOKEN);
-    if(current_token.code==IDENTIFIER_TOKEN || current_token.code==STRING_TOKEN)
-        _revoke_role_statement();
-    else _revoke_permission_statement();
-
-}*/
-
-/*void _revoke_role_statement(){
-    if(current_token.code==IDENTIFIER_TOKEN || current_token.code==STRING_TOKEN) getToken();
-    else {print_error_token(current_token.code);getToken();}
-    _test_symbol(FROM_TOKEN);
-    if(current_token.code==IDENTIFIER_TOKEN || current_token.code==STRING_TOKEN)getToken();
-    else {print_error_token(current_token.code);getToken();}
-}*/
-
-/*void _revoke_permission_statement(){
-    _permissions();
-    _test_symbol(ON_TOKEN);
-    _ressource();
-    _test_symbol(FROM_TOKEN);
-    if(current_token.code==IDENTIFIER_TOKEN|| current_token.code==STRING_TOKEN)getToken();
-    else {print_error_token(current_token.code);getToken();}
-
-}*/
-
-
-
-/*void _list_roles_statement(){
-    _test_symbol(ROLES_TOKEN);
-    _of_role_statement();
-    _no_recursive_statement();
-}*/
-
-
-/*void _list_permissions_statement(){
-    _permissions();
-    _on_ressource_statement();
-    _of_role_name_statement();
-}*/
-/*void _role_options()
-{
-    _role_option();
-    while (current_token.code == AND_TOKEN )
-    {
-        getToken();
-        _role_option();
-    }
-}*/
-
-/*void _role_option()
-{
-    switch (current_token.code) {
-    case PASSWORD_TOKEN  :     getToken();    _test_symbol(EG_TOKEN);    _test_symbol(STRING_TOKEN);                          break;
-    case LOGIN_TOKEN     :     getToken();    _test_symbol(EG_TOKEN);    _test_symbol(BOOLEAN_VALUE_TOKEN);                   break;
-    case SUPERUSER_TOKEN :     getToken();    _test_symbol(EG_TOKEN);    _test_symbol(BOOLEAN_VALUE_TOKEN);                   break;
-    case OPTIONS_TOKEN   :     getToken();    _test_symbol(EG_TOKEN);    _test_symbol(ACOLADO_TOKEN);   _map_literal();       break;
-    default:   print_error_token(current_token.code);
-
-    }
-}*/
-/*void _arg_sin()
-{
-    if( current_token.code == END_TOKEN );
-    _cql_type();
-    //avancer avant dans cql_type
-    while(current_token.code == VIR_TOKEN )
-    {
-        getToken();
-        _cql_type();
-    }
-}*/
-/*void _arg_dec()
-{
-    _test_symbol(IDENTIFIER_TOKEN);
-    _cql_type();
-    while( current_token.code == VIR_TOKEN )
-    {
-        getToken();
-        _test_symbol(IDENTIFIER_TOKEN);
-        _cql_type();
-    }
-}*/
-/*void _group_by_clause(void){
-    _test_symbol(IDENTIFIER_TOKEN);
-    while(current_token.code==VIR_TOKEN){
-        _test_symbol(IDENTIFIER_TOKEN);
-    }
-    switch(current_token.code){
-    case ORDER_TOKEN: getToken();_test_symbol(BY_TOKEN); _order_by_clause(); break;
-    case PER_TOKEN  : getToken();_test_symbol(PARTITION_TOKEN); _test_symbol(LIMIT_TOKEN); _option_type(); break;
-    case LIMIT_TOKEN: getToken(); _option_type(); break;
-    case ALLOW_TOKEN: _test_symbol(FILTERING_TOKEN); break;
-    }
-}*/

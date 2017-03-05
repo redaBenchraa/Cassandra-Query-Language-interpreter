@@ -37,133 +37,190 @@ extern node* andOrIn;
 extern char *userName;
 extern char* describe_keyspace;
 
-void _test_symbol(code_token_t);
-void isTableName(void);
-void _index_option(void);
-void _index_identifier(void);
-void _options(void);
-void _option(void);
-void _constant(void);
-void _map_literal(void);
-void _term(void);
-void _aux_1(void);
-void _aux_2(void);
-void _aux_3(void);
-void _aux_4(void);
-void _aux_1_1(void);
-void _aux_1_2(void);
-void _opt_data(void);
-void _if_not_exists(void);
-void _cql_type(void);
-void _column_defenition(void);
-void _primary_key_ox_para(void);
-void _primary_key_def(void);
-void _partition_key(void);
-void _clustring_columns(void);
-void _table_options(void);
-void _clustering_oredr(void);
-void _table_options_ox(void);
-void _asc_desc(void);
-void _alter_table_instruction(void);
-void _alter_type_modification(void);
-void _role_options(void);
-void _role_option(void);
-void _if_exist(void);
-void _arg_sin(void);
-void _exist_aux(void);
-void _arg_dec(void);
-void _select_clause(void);
-void _selector(void);
-void _selector_aux(void);
-void _where_clause(void);
-void _group_clause(void);
-void _order_by_clause(void);
-void _option_type(void);
-void _relation(void);
-void _operator(void);
+void getToken();
 
-void _use_statement(void);
-void _select_statement(void);
-void _update_statement(void);
+int search_column(char* colName);
+
+void print_error(int code);
+
+void parse();
+
+void _program();
+
+void _describe_statement();
+
+void _describe_keyspace_statement();
+
+void _describe_table_statement();
+
+void _create_statement();
+
+void _alter_statement();
+
+void _drop_statement();
+
+void _create_keyspace_statement();
+
+void _create_table_statement();
+
+void _create_index_statement();
+
+void _create_type_statement();
+
+void _using_statement();
+
+void _alter_keyspace_statement();
+
+void _alter_table_statement();
+
+void _alter_type_statement();
+
+void _drop_keyspace_statement();
+
+void _drop_table_statement();
+
+void _drop_index_statement();
+
+void _drop_type_statement();
+
+void _truncate_statement();
+
+void _use_statement(); 
+
+void _select_statement(); 
+
 void _insert_statement(void);
-void _delete_statement(void);
+
+void _delete_statement(void); 
+
 void _batch_statement(void);
 
-void _option_using(void);
-void _update_parametre(void);
-void _assignment(void);
-void _assignment_aux(void);
-void _option_type_aux(void);
-void _update_parametre_aux(void);
-void _aff_column_name(void);
-void _option_list_literal(void);
-void _option_if(void);
-void _option_if_aux(void);
-void _condition(void);
+void _update_statement(void);
+
+void _test_symbol(int code);
+
+void isTableName();
+
+void _alter_table_instruction();
+
+void _alter_type_modification();
+
+void _if_exist();
+
+void _exist_aux();
+
+void _cql_type();
+
+void _column_defenition();
+
+void _primary_key_ox_para();
+
+void _primary_key_def();
+
+void _partition_key();
+
+void _clustring_columns();
+
+void _table_options();
+
+void _table_options_ox();
+
+void _clustering_oredr();
+
+void _asc_desc();
+
+void _index_identifier();
+
+void _index_option();
+
+void _options();
+
+void _option();
+
+void _constant();
+
+void _map_literal();
+
+void _term();
+
+void _opt_data();
+
+void _aux_1();
+
+void _aux_2();
+
+void _aux_3();
+
+void _aux_4();
+
+void _aux_1_1();
+
+void _aux_1_2();
+
+void _if_not_exists();
+
 void _tuple_literal(void);
+
 void _insert_statement_aux(void);
+
 void _option_default(void);
+
 void _default_aux(void);
+
 void _option_selection(void);
-void _option_batch(void);
+
 void _modification_statement(void);
 
+void _option_batch(void);
 
-void _permissions(void);
-void _ressource(void);
-void _permission(void);
-void _all_statement(void);
-void _all_functions_statement(void);
-void _function_statement(void);
-void _of_role_statement(void);
-void _no_recursive_statement(void);
-void _on_ressource_statement(void);
-void _of_role_name_statement(void);
+void _select_clause(void); 
 
-void _grant_statement(void);
-void _grant_role_statement(void);
-void _grant_permission_statement(void);
+void _selector(void);
 
-//revoke_statement
-void _revoke_statement(void);
-void _revoke_role_statement(void);
-void _revoke_permission_statement(void);
+void _selector_aux(void);
 
-//list_statement
-void _list_statement(void);
-void _list_roles_statement(void);
-void _list_permissions_statement(void);
-void _list_users_statement(void);
+void _option_selector(void);
 
-void _create_keyspace_statement(void);
-void _create_table_statement(void);
-void _create_index_statement(void);
-void _create_materialized_statement(void);
-void _create_role_statement(void);
-void _create_user_statement(void);
-void _create_type_statement(void);
-void _create_trigger_statement(void);
-void _create_function_statement(void);
-void _create_aggregate_statement(void);
+void _aux(void);
 
-void _using_statement(void);
+void _where_clause(void);
 
-void _alter_keyspace_statement(void);
-void _alter_table_statement(void);
-void _alter_role_statement(void);
-void _alter_user_statement(void);
-void _alter_type_statement(void);
+void _order_by_clause(void);
 
-void _drop_keyspace_statement(void);
-void _drop_table_statement(void);
-void _drop_index_statement(void);
-void _drop_role_statement(void);
-void _drop_user_statement(void);
-void _drop_function_statement(void);
+void _option_type(void);
 
-void _drop_aggregate_statement(void);
-void _drop_type_statement(void);
-void _drop_trigger_statement(void);
-void _drop_materialized_statement(void);
+void _relation(void);
 
-void _truncate_statement(void);
+void _operator(void);
+
+void _option_using(void);
+
+void _update_parametre(void);
+
+void _update_parametre_aux(void);
+
+void _option_type_aux(void);
+
+void _assignment(void);
+
+void _assignment_aux(void);
+
+void _aff_column_name(void);
+
+void _option_list_literal(void);
+
+void _option_if(void);
+
+void _option_if_aux(void);
+
+void _condition(void);
+
+void _create_user_statement();
+
+void _alter_user_statement();
+
+void _drop_user_statement();
+
+void _list_statement();
+
+void _list_users_statement();
