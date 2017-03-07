@@ -134,6 +134,9 @@ char KEYWORDS1[][50] = {
 	"END",
 	"error"
 };
+/* Cette fonction s'assure qu'il n'y'a aucun problème au niveau de l'instruction (create,describe,etc.)
+   et renvoit à la fonction correspondante à l'instruction
+*/
 void interpret(){
 	if(CURRENT_PARENT_INST != USE_TOKEN && CURRENT_PARENT_INST != LIST_TOKEN 
 		&& !(CURRENT_PARENT_INST == CREATE_TOKEN && CURRENT_CHILD_INST == KEYSPACE_TOKEN)
@@ -147,7 +150,6 @@ void interpret(){
 		char * result = malloc(256); 
 		sprintf(result,"%s","Il faut d'abord specifier la base de donees\n");
 		pushResult(result,sizeofString(result)+1);
-		//printf("Il faut d'abord specifier la base de donees\n");
 	}else{
 		switch(CURRENT_PARENT_INST){
 	        case USE_TOKEN      : use_interpreter();     break;
@@ -162,18 +164,20 @@ void interpret(){
 	        case DELETE_TOKEN   : delete_interpreter();  break;
 	        case LIST_TOKEN		: list_interpreter(); 	 break;
 	        case DESCRIBE_TOKEN	: describe_interpreter(); 	 break;
-	        default             : break;//print_error_token(current_token.code);
+	        default             : break;
 		}
 	}
 }
 //----------------------------------------------------
-
+/*
+Cette fonction concerne l'instruction use keyspace, si le keyspace existe, on l'utilise,
+sinon on déclare l'erreur et on remet le keyspace courant à NULL
+*/
 void use_interpreter(){
 	if(checkKeyspace(current_keyspace) == FOLDER_NOT_EXISTS){
         char * result = malloc(256); 
         sprintf(result,"%s","Le keyspace n'existe pas\n");
         pushResult(result,sizeofString(result)+1);
-		//printf("Le keyspace n'existe pas\n");
 		free(current_keyspace);
 		current_keyspace = NULL;
 	}else{
@@ -183,6 +187,10 @@ void use_interpreter(){
 	}
 }
 //----------------------------------------------------
+/*
+Cette fonction concerne l'instruction describe, si on décrit une table, elle nous renvoie à interpret_describeTable(),
+Sinon si on décrit un keyspace, elle nous renvoie à interpret_describeKeyspace()
+*/
 void describe_interpreter(){
 	switch(CURRENT_CHILD_INST){
 		case TABLE_TOKEN : interpret_describeTable();break;
@@ -191,6 +199,10 @@ void describe_interpreter(){
 	}
 }
 //---------------------------------------------------
+/*
+Cette fonction décrit une table, elle s'assure qu'elle existe, puis on stock ses informations dans une variable t de type TableConfig
+après on adapte le contenu dans la chaine "result" qu'on affiche et qu'on vide régulièrement.
+*/
 void interpret_describeTable(){
 	if(checkTable(current_keyspace,table_name) == FOLDER_EXISTS){
 		TableConfig * t = readTableConfig(current_keyspace,table_name);
@@ -230,6 +242,9 @@ void interpret_describeTable(){
 	    pushResult(result,sizeofString(result)+1);
 	}
 }
+/*
+Cette fonction se base sur le même principe que la précédente, sauf que celle-ci utilise keyspaceConfig au lieu de TableConfig
+*/
 void interpret_describeKeyspace(){
 	if(checkKeyspace(describe_keyspace) != FOLDER_NOT_EXISTS){
 		char * result = malloc(256); 
@@ -256,6 +271,9 @@ void interpret_describeKeyspace(){
 	
 }
 //---------------------------------------------------
+/*
+Cette fonction nous permet de créer soit une table, un keyspace ou un utilisateur, et elle nous renvoit à interpret_createTable(), interpret_createKeyspace() et interpret_createUser()
+*/
 void create_interpreter(){	
 	switch(CURRENT_CHILD_INST){
 		case TABLE_TOKEN : interpret_createTable();break;
@@ -264,13 +282,17 @@ void create_interpreter(){
     	default : break;
 	}
 }
+/*
+Cette fonction se charge de la création d'une table. Si la table existe déjà ou bien que le keyspace n'existe pas, elle affiche erreur.
+Sinon, on s'assure, dans le cas où il y'aurait des Primary Keys, que ces colonnes existent réellement, dans le cas contraire, on affiche l'erreur
+*/
 void interpret_createTable(){
 	if(checkTable(current_keyspace,table_name) != FOLDER_EXISTS){
 	    if(current_keyspace == NULL){
         	char * result = malloc(256); 
 	        sprintf(result,"%s","keyspace NULL\n");
 	        pushResult(result,sizeofString(result)+1);	    	
-	        //printf("keyspace NULL\n");
+	      
 	    }
 	    else{
 	        TableConfig *config = malloc(sizeof(TableConfig));
@@ -312,10 +334,13 @@ void interpret_createTable(){
 		char * result = malloc(256); 
 	    sprintf(result,"La table '%s' existe deja dans '%s'\n",table_name,current_keyspace);
 	    pushResult(result,sizeofString(result)+1);
-		//printf("La table '%s' existe deja dans '%s'\n",table_name,current_keyspace);
+		
 	}
 
 }
+/*
+Cette fonction crée le keyspace demandé
+*/
 void interpret_createKeyspace(){
 	keyspaceConfig config;
 	config.tableCount = 0;
@@ -325,9 +350,12 @@ void interpret_createKeyspace(){
 	char * result = malloc(256); 
 	sprintf(result,"%s \n%s\n",results[i],results[j]);
 	pushResult(result,sizeofString(result)+1);
-	//printf("%s \n%s\n",results[i],results[j]);
 }
 //----------------------------------------------------
+/*
+Cette fonction nous renvoie à interpret_alterTable(),interpret_alterKeyspace() ou bien interpret_alterUser(),
+selon qu'on veuille modifier une table, un keyspace ou bien un utilisateur.
+*/
 void alter_interpreter(){
 	switch(CURRENT_CHILD_INST){
 		case TABLE_TOKEN : interpret_alterTable();break;
@@ -336,6 +364,9 @@ void alter_interpreter(){
     	default : break;
 	}	
 }
+/*
+Cette fonction nous permet d'ajouter, supprimer et renommer une colonne, selon l'instruction qui suit le "alter"
+*/
 void interpret_alterTable(){
 	int res;
 	switch(CURRENT_DESCENDANT_INST){
@@ -354,12 +385,15 @@ void interpret_alterTable(){
 	char * result = malloc(256); 
 	sprintf(result,"%s\n",results[res]);
 	pushResult(result,sizeofString(result)+1);
-	//printf("%s\n",results[result]);
+	
 }
 void interpret_alterKeyspace(){
 	// Nothing to do here since we don't use nodes and clusters.
 }
 //----------------------------------------------------
+/*
+Cette fonction nous permet de supprimer une table, un keyspace ou un utilisateur
+*/
 void drop_interpreter(){
 	switch(CURRENT_CHILD_INST){
 		case TABLE_TOKEN : interpret_dropTable();break;
@@ -368,6 +402,9 @@ void drop_interpreter(){
     	default : break;
 	}	
 }
+/*
+Ces deux fonctions qui suivent reposent sur le même principe. Elles suppriment respectivement une table et un keyspace.
+*/
 void interpret_dropTable(){
 	int res = deleteTable(current_keyspace,table_name);
 	char * result = malloc(256); 
